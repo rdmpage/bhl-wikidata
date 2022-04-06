@@ -1,6 +1,43 @@
 <?php
 
+// Environment----------------------------------------------------------------------------
+// In development this is a PHP file that is in .gitignore, when deployed these parameters
+// will be set on the server
+if (file_exists(dirname(__FILE__) . '/env.php'))
+{
+	include 'env.php';
+}
+
 require_once(dirname(__FILE__) . '/wikidata.php');
+
+//----------------------------------------------------------------------------------------
+function get_part_from_bhl_part($id)
+{
+	$part = null;
+	
+	$parameters = array(
+		'op' 		=> 'GetPartMetadata',
+		'partid'	=> $id,
+		'apikey'	=> getenv('BHL_API_KEY'),
+		'format'	=> 'json'
+	);
+	
+	$url = 'https://www.biodiversitylibrary.org/api2/httpquery.ashx?' . http_build_query($parameters);
+	
+	$json = get($url);
+	
+	$obj = json_decode($json);
+	
+	// print_r($obj);
+	
+	if ($obj && isset($obj->Result))
+	{
+		$part = $obj->Result;
+	}
+	
+	return $part;
+}
+
 
 //----------------------------------------------------------------------------------------
 function add_from_doi($doi, $update = false)
@@ -35,6 +72,46 @@ function add_from_doi($doi, $update = false)
 		
 		if ($work)
 		{
+			// anything extra?
+			
+			// If this is a BHL DOI for a part we attempt to match authors to BHL ids
+			if (preg_match('/10\.5962\/(bhl\.part|p)\.(?<part>\d+)/', $doi, $m))
+			{
+				$part = get_part_from_bhl_part($m['part']);
+				
+				if (0)
+				{
+					echo '<pre>';
+					print_r($part->Authors);
+					echo '</pre>';
+				}
+				
+				if ($part)
+				{
+					if (isset($work->message->author) && isset($part->Authors))
+					{				
+						$n1 = count($work->message->author);
+						$n2 = count($part->Authors);
+				
+						if ($n1 == $n2)
+						{
+							for ($i = 0; $i < $n1; $i++)
+							{
+								if (isset($part->Authors[$i]->CreatorID))
+								{
+									$work->message->author[$i]->BHL = $part->Authors[$i]->CreatorID;
+								}					
+							}
+						}
+					}					
+				
+				}
+			}
+		}
+		
+		
+		if ($work)
+		{
 			$source = array();
 		}
 		
@@ -60,7 +137,7 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	// process
 	$results = array();
 	
-	$ids = explode("\n", $_GET['ids']);
+	$ids = explode("\n", trim($_GET['ids']));
 	
 	//echo '<pre>';
 	//print_r($ids);
@@ -100,7 +177,8 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	<style>
 		body {
 			font-family:sans-serif;
-			padding:20px;
+			padding:40px;
+			color:#424242;
 		}
 		
 	button {
@@ -194,7 +272,8 @@ else
 	<style>
 		body {
 			font-family:sans-serif;
-			padding:20px;
+			padding:40px;
+			color:#424242;
 		}
 		
 	button {
@@ -211,6 +290,8 @@ else
 <h1>
 	<a href=".">BHL to Wikidata</a>
 </h1>
+
+<p>A tool by Rod Page, code on <a href="https://github.com/rdmpage/bhl-wikidata" target="_blank">GitHub</a></p>
 
 <p>This tool is inspired by <a href="https://sourcemd.toolforge.org/index_old.php">SourceMD</a> and works in much the same way. 
 Enter one or more DOIs, one per line. The tool checks whether the DOIs already exist in Wikidata,
