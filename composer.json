@@ -1,0 +1,12 @@
+{
+    "name": "rpage/bhl-wikidata",
+    "require": {
+        "ext-mbstring": "^7.1"
+    },
+    "authors": [
+        {
+            "name": "Roderic Page",
+            "email": "rdmpage@gmail.com"
+        }
+    ]
+}
