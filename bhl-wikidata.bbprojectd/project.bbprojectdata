@@ -4,8 +4,10 @@
 <dict>
 	<key>HierarchyData</key>
 	<array>
+		<string>AFD1C929-6956-4C10-9AEA-6CE84DB71274</string>
 		<string>2253EC98-93B3-4F98-9D80-178159B51165</string>
-		<string>88AC3908-0839-4690-9E2B-D9CBD5A877FD</string>
+		<string>CB4F5936-CBE4-451A-8BB4-039B7DCB0C3D</string>
+		<string>62304CE8-888A-4269-AD86-6259E7FE5311</string>
 	</array>
 	<key>ProjectItems</key>
 	<dict>
@@ -57,7 +59,57 @@
 			<key>UserOverrideItemName</key>
 			<true/>
 		</dict>
-		<key>88AC3908-0839-4690-9E2B-D9CBD5A877FD</key>
+		<key>62304CE8-888A-4269-AD86-6259E7FE5311</key>
+		<dict>
+			<key>ItemData</key>
+			<dict>
+				<key>BookmarkData</key>
+				<data>
+				Ym9vayADAAAAAAQQMAAAAJzVvdDkKqqRGYTTmloT4Y1v
+				ttusZfTxI9TG858Ho5UyEAIAAAQAAAADAwAAAAgAKAUA
+				AAABAQAAVXNlcnMAAAAFAAAAAQEAAHJwYWdlAAAABQAA
+				AAEBAABTaXRlcwAAAAwAAAABAQAAYmhsLXdpa2lkYXRh
+				DAAAAAEBAAB3aWtpZGF0YS5waHAUAAAAAQYAABAAAAAg
+				AAAAMAAAAEAAAABUAAAACAAAAAQDAAAQZwIAAAAAAAgA
+				AAAEAwAAhXQNAAAAAAAIAAAABAMAAARWTAAAAAAACAAA
+				AAQDAADGTEkKAwAAAAgAAAAEAwAApHtJCgMAAAAUAAAA
+				AQYAAIQAAACUAAAApAAAALQAAADEAAAACAAAAAAEAABB
+				w/7hGCV4WRgAAAABAgAAAQAAAAAAAAAPAAAAAAAAAAAA
+				AAAAAAAACAAAAAQDAAADAAAAAAAAAAQAAAADAwAA9QEA
+				AAgAAAABCQAAZmlsZTovLy8MAAAAAQEAAE1hY2ludG9z
+				aCBIRAgAAAAEAwAAAODFMnQAAAAIAAAAAAQAAEG+3V1i
+				AAAAJAAAAAEBAAAyNUU0Mjg2RC03MTJDLTM4OTktQjQz
+				Ri01RDNGNkE4QkQxMjEYAAAAAQIAAIEAAAABAAAA7xMA
+				AAEAAAAAAAAAAAAAAAEAAAABAQAALwAAAAAAAAABBQAA
+				GgAAAAEBAABOU1VSTERvY3VtZW50SWRlbnRpZmllcktl
+				eQAABAAAAAMDAACtsQEA2AAAAP7///8BAAAAAAAAABEA
+				AAAEEAAAaAAAAAAAAAAFEAAA1AAAAAAAAAAQEAAAAAEA
+				AAAAAABAEAAA8AAAAAAAAAACIAAAzAEAAAAAAAAFIAAA
+				PAEAAAAAAAAQIAAATAEAAAAAAAARIAAAgAEAAAAAAAAS
+				IAAAYAEAAAAAAAATIAAAcAEAAAAAAAAgIAAArAEAAAAA
+				AAAwIAAA2AEAAAAAAAABwAAAIAEAAAAAAAARwAAAIAAA
+				AAAAAAASwAAAMAEAAAAAAAAQ0AAABAAAAAAAAADgAQCA
+				BAIAAAAAAAA=
+				</data>
+				<key>FileURL</key>
+				<string>file:///Users/rpage/Sites/bhl-wikidata/wikidata.php</string>
+				<key>HasSecurityScope</key>
+				<true/>
+				<key>RelativePath</key>
+				<string>./wikidata.php</string>
+				<key>TypeID</key>
+				<string>_CFileLocator</string>
+				<key>Version</key>
+				<integer>1</integer>
+			</dict>
+			<key>ItemName</key>
+			<string>wikidata.php</string>
+			<key>ItemType</key>
+			<string>FileReference</string>
+			<key>UserOverrideItemName</key>
+			<true/>
+		</dict>
+		<key>AFD1C929-6956-4C10-9AEA-6CE84DB71274</key>
 		<dict>
 			<key>ItemData</key>
 			<dict>
@@ -100,6 +152,56 @@
 			</dict>
 			<key>ItemName</key>
 			<string>README.md</string>
+			<key>ItemType</key>
+			<string>FileReference</string>
+			<key>UserOverrideItemName</key>
+			<true/>
+		</dict>
+		<key>CB4F5936-CBE4-451A-8BB4-039B7DCB0C3D</key>
+		<dict>
+			<key>ItemData</key>
+			<dict>
+				<key>BookmarkData</key>
+				<data>
+				Ym9vayADAAAAAAQQMAAAAGH/qeXGDFIvFQsYF/RqJEcp
+				MA8rHAULKPPgt7JQhphjEAIAAAQAAAADAwAAAAgAKAUA
+				AAABAQAAVXNlcnMAAAAFAAAAAQEAAHJwYWdlAAAABQAA
+				AAEBAABTaXRlcwAAAAwAAAABAQAAYmhsLXdpa2lkYXRh
+				CQAAAAEBAABpbmRleC5waHAAAAAUAAAAAQYAABAAAAAg
+				AAAAMAAAAEAAAABUAAAACAAAAAQDAAAQZwIAAAAAAAgA
+				AAAEAwAAhXQNAAAAAAAIAAAABAMAAARWTAAAAAAACAAA
+				AAQDAADGTEkKAwAAAAgAAAAEAwAAC2NJCgMAAAAUAAAA
+				AQYAAIQAAACUAAAApAAAALQAAADEAAAACAAAAAAEAABB
+				w/7eatvdGxgAAAABAgAAAQAAAAAAAAAPAAAAAAAAAAAA
+				AAAAAAAACAAAAAQDAAADAAAAAAAAAAQAAAADAwAA9QEA
+				AAgAAAABCQAAZmlsZTovLy8MAAAAAQEAAE1hY2ludG9z
+				aCBIRAgAAAAEAwAAAODFMnQAAAAIAAAAAAQAAEG+3V1i
+				AAAAJAAAAAEBAAAyNUU0Mjg2RC03MTJDLTM4OTktQjQz
+				Ri01RDNGNkE4QkQxMjEYAAAAAQIAAIEAAAABAAAA7xMA
+				AAEAAAAAAAAAAAAAAAEAAAABAQAALwAAAAAAAAABBQAA
+				GgAAAAEBAABOU1VSTERvY3VtZW50SWRlbnRpZmllcktl
+				eQAABAAAAAMDAACrsQEA2AAAAP7///8BAAAAAAAAABEA
+				AAAEEAAAaAAAAAAAAAAFEAAA1AAAAAAAAAAQEAAAAAEA
+				AAAAAABAEAAA8AAAAAAAAAACIAAAzAEAAAAAAAAFIAAA
+				PAEAAAAAAAAQIAAATAEAAAAAAAARIAAAgAEAAAAAAAAS
+				IAAAYAEAAAAAAAATIAAAcAEAAAAAAAAgIAAArAEAAAAA
+				AAAwIAAA2AEAAAAAAAABwAAAIAEAAAAAAAARwAAAIAAA
+				AAAAAAASwAAAMAEAAAAAAAAQ0AAABAAAAAAAAADgAQCA
+				BAIAAAAAAAA=
+				</data>
+				<key>FileURL</key>
+				<string>file:///Users/rpage/Sites/bhl-wikidata/index.php</string>
+				<key>HasSecurityScope</key>
+				<true/>
+				<key>RelativePath</key>
+				<string>./index.php</string>
+				<key>TypeID</key>
+				<string>_CFileLocator</string>
+				<key>Version</key>
+				<integer>1</integer>
+			</dict>
+			<key>ItemName</key>
+			<string>index.php</string>
 			<key>ItemType</key>
 			<string>FileReference</string>
 			<key>UserOverrideItemName</key>

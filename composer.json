@@ -1,7 +1,8 @@
 {
     "name": "rpage/bhl-wikidata",
     "require": {
-        "ext-mbstring": "^7.1"
+        "ext-mbstring": "^7.1",
+        "patrickschur/language-detection": "^3.4"
     },
     "authors": [
         {
