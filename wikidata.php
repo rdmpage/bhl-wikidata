@@ -2740,6 +2740,9 @@ award: [
 				{
 					foreach ($v as $license)
 					{
+						
+						//print_r($license);
+						
 						if (isset($license->URL))
 						{				
 							// map to Wikidata
@@ -2750,6 +2753,7 @@ award: [
 							  
 								case 'https://creativecommons.org/licenses/by/4.0/':
 								case 'https://creativecommons.org/licenses/by/4.0':
+								case 'http://creativecommons.org/licenses/by/4.0/':
 									// CC-BY 4.0
 									$license_item = 'Q20007257';
 									break;
