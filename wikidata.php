@@ -1777,8 +1777,38 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 							if ($author_item != '')
 							{				
 								$name = csl_author_to_name($author);
-										
-								$w[] = array('P50' => $author_item . "\tP1545\t\"$count\"\tP1932\t\"" . $name . "\"");
+								
+								$qualifiers = array();
+								
+								$qualifiers [] = 'P1545';
+								$qualifiers [] = '"' . $count . '"';
+								
+								// add how name is shown in metadata
+								if ($name != '')
+								{								
+									$qualifiers [] = 'P1932';
+									$qualifiers [] = '"' . addcslashes($name, '"') . '"';
+								}
+								
+								// add affiliation data
+								if (isset($author->affiliation))
+								{
+									foreach ($author->affiliation as $affiliation)
+									{
+										if (isset($affiliation->name))
+										{
+											// clean
+											$affiliation->name = str_replace("\t", "", $affiliation->name);
+											$affiliation->name = str_replace("\r", "", $affiliation->name);
+											$affiliation->name = str_replace("\n", " ", $affiliation->name);
+								
+											$qualifiers [] = 'P6424';
+											$qualifiers [] = '"' . addcslashes($affiliation->name, '"') . '"';
+										}
+									}						
+								}								
+									
+								$w[] = array('P50' => $author_item . "\t" . join("\t", $qualifiers));
 								$done = true;
 							}						
 						}						
