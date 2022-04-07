@@ -59,7 +59,7 @@ function doi_to_agency($doi)
 function post_process(&$obj)
 {
 	// type
-	if (isset($obj->message->type))
+	if (!isset($obj->message->type))
 	{
 		$obj->message->type = 'article-journal';
 	}
