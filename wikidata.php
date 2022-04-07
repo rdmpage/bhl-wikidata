@@ -3086,23 +3086,6 @@ function wikidata_item_from_openurl_journal($journal, $volume, $spage, $year)
 }
 
 
-//----------------------------------------------------------------------------------------
-// Fetch CrossRef DOI
-function get_work($doi)
-{
-	$obj = null;
-	
-	$url = 'https://api.crossref.org/v1/works/' . $doi;
-	
-	$json = get($url);
-	
-	if ($json != '')
-	{
-		$obj = json_decode($json);
-	}
-	return $obj;
-}
-
 
 //----------------------------------------------------------------------------------------
 // Try to locate an item using any identifier or metadata that we have
