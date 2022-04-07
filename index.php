@@ -58,6 +58,13 @@ function doi_to_agency($doi)
 //----------------------------------------------------------------------------------------
 function post_process(&$obj)
 {
+	// type
+	if (isset($obj->message->type))
+	{
+		$obj->message->type = 'article-journal';
+	}
+		
+	// ISSNs
 	if (isset($obj->message->ISSN))
 	{
 		foreach ($obj->message->ISSN as &$issn)
