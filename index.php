@@ -241,7 +241,7 @@ function add_from_doi($doi, $update = false)
 			{
 				$part = get_part_from_bhl_part($m['part']);
 				
-				if (1)
+				if (0)
 				{
 					echo '<pre>';
 					print_r($part);
