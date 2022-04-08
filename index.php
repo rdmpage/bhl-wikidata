@@ -109,7 +109,7 @@ function post_process(&$obj)
 					break;
 					
 				case '大阪市立自然史博物館研究報告 = Bulletin of the Osaka Museum of Natural History':
-						$obj->message->ISSN[] = '0078-6675';
+					$obj->message->ISSN[] = '0078-6675';
 					break;
 					
 				default:
@@ -204,6 +204,8 @@ function add_from_doi($doi, $update = false)
 {
 	$result = null;
 	
+	$source = array();
+	
 	$check = true; // just to be safe
 	$check = false; // do you feel lucky?
 	
@@ -235,19 +237,20 @@ function add_from_doi($doi, $update = false)
 			// anything extra?
 			
 			// If this is a BHL DOI for a part we attempt to match authors to BHL ids
-			if (preg_match('/10\.5962\/(bhl\.part|p)\.(?<part>\d+)/', $doi, $m))
+			if (preg_match('/10\.5962\/(bhl\.part|p)\.(?<part>\d+)/i', $doi, $m))
 			{
 				$part = get_part_from_bhl_part($m['part']);
 				
 				if (0)
 				{
 					echo '<pre>';
-					print_r($part->Authors);
+					print_r($part);
 					echo '</pre>';
 				}
 				
 				if ($part)
 				{
+					// authors
 					if (isset($work->message->author) && isset($part->Authors))
 					{				
 						$n1 = count($work->message->author);
@@ -263,8 +266,19 @@ function add_from_doi($doi, $update = false)
 								}					
 							}
 						}
-					}					
-				
+					}
+					
+					// identifiers
+					if (isset($part->PartID))
+					{
+						$work->message->BHLPART = $part->PartID;
+					}
+
+					if (isset($part->StartPageID))
+					{
+						$work->message->BHL = $part->StartPageID;
+					}
+									
 				}
 			}
 		}
@@ -272,7 +286,40 @@ function add_from_doi($doi, $update = false)
 		
 		if ($work)
 		{
-			$source = array();
+			if (0) // 1 if we want to add references for each statement
+			{
+				$agency = doi_to_agency($doi);
+	
+				switch ($agency)
+				{
+					case 'Crossref':	
+						$url = 'https://api.crossref.org/v1/works/' . $doi;
+												
+						$source[] = 'S248';
+						$source[] = 'Q5188229'; // CrossRef
+							
+						$source[] = 'S854';
+						$source[] = '"' . $url . '"';
+						break;
+	
+					case 'JaLC':
+						$url = 'https://doi.org/' . $doi;	
+						
+						$source[] = 'S248';
+						$source[] = 'Q100319347'; // JaLC
+							
+						$source[] = 'S854';
+						$source[] = '"' . $url . '"';
+						break;
+							
+					default:
+						break;	
+				}
+			}
+			else
+			{
+				$source = array();
+			}		
 		}
 		
 		$q = csljson_to_wikidata(

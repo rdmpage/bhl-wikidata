@@ -1148,6 +1148,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 		'P407', // language of work is almost never set by the source
 		'P1922',
 		'P6535', // credit BHL separately
+		'P687', // credit BHL separately
 	); // e.g., when adding PDFs or IA to records from JSTOR
 	
 	// Is record sane?
@@ -2106,18 +2107,38 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				
 			//----------------------------------------------------------------------------
 			case 'BHL':
-				$w[] = array($wikidata_properties[$k] => '"' . $v . '"');
+				if (isset($work->message->BHLPART) && count($source) != 0)
+				{
+					$qualifiers = array();
+					$qualifiers [] = 'S248';
+					$qualifiers [] = 'Q172266';
+					$qualifiers [] = 'S854';
+					$qualifiers [] = '"https://www.biodiversitylibrary.org/part/' . $work->message->BHLPART . '"';							
+	
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"' . "\t" . join("\t", $qualifiers));				
+				}
+				else
+				{
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"');	
+				}											
 				break;
 
 			//----------------------------------------------------------------------------
 			case 'BHLPART':
-				$qualifiers = array();
-				$qualifiers [] = 'S248';
-				$qualifiers [] = 'Q172266';
-				$qualifiers [] = 'S854';
-				$qualifiers [] = '"https://www.biodiversitylibrary.org/part/' . $work->message->BHLPART . '"';							
+				if (isset($work->message->BHLPART) && count($source) != 0)
+				{
+					$qualifiers = array();
+					$qualifiers [] = 'S248';
+					$qualifiers [] = 'Q172266';
+					$qualifiers [] = 'S854';
+					$qualifiers [] = '"https://www.biodiversitylibrary.org/part/' . $work->message->BHLPART . '"';							
 	
-				$w[] = array($wikidata_properties[$k] => '"' . $v . '"' . "\t" . join("\t", $qualifiers));
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"' . "\t" . join("\t", $qualifiers));
+				}
+				else
+				{
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"');	
+				}											
 				break;
 
 			//----------------------------------------------------------------------------
