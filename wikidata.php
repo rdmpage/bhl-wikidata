@@ -2738,15 +2738,15 @@ award: [
 			case 'license':
 				if (is_array($v))
 				{
+					$licenses = array();
+					
 					foreach ($v as $license)
 					{
-						
 						//print_r($license);
 						
 						if (isset($license->URL))
 						{				
 							// map to Wikidata
-							$license_item = '';
 							switch ($license->URL)
 							{
 							  
@@ -2755,87 +2755,93 @@ award: [
 								case 'https://creativecommons.org/licenses/by/4.0':
 								case 'http://creativecommons.org/licenses/by/4.0/':
 									// CC-BY 4.0
-									$license_item = 'Q20007257';
+									$licenses[] = 'Q20007257';
 									break;
 							  
 								case 'https://creativecommons.org/licenses/by-nd/4.0/':						
 									// CC-BY-ND 4.0 
-									$license_item = 'Q36795408';
+									$licenses[] = 'Q36795408';
 									break;
 							
 								case 'http://creativecommons.org/licenses/by-nc/3.0/':						
 								case 'http://creativecommons.org/licenses/by-nc/3.0/nl/':						
 									// CC-BY-NC 
-									$license_item = 'Q18810331';					
+									$licenses[] = 'Q18810331';					
 									break;
 								
 								case 'https://creativecommons.org/licenses/by-nc/4.0':
 									// CC-BY-NC  4.0
-									$license_item = 'Q34179348';
+									$licenses[] = 'Q34179348';
 									break;
 							
 								case 'http://creativecommons.org/licenses/by-sa/3.0/nl/':
 									// CC-BY-SA 
-									$license_item = 'Q14946043';												
+									$licenses[] = 'Q14946043';												
 									break;
 								
 								case 'http://creativecommons.org/licenses/by-sa/4.0':
 									// CC-BY-SA 
-									$license_item = 'Q18199165';												
+									$licenses[] = 'Q18199165';												
 									break;
 								
 								case 'https://creativecommons.org/licenses/by-nc-sa':							
 									// CC-BY-NC-SA unknown version
-									$license_item = 'Q6998997';												
+									$licenses[] = 'Q6998997';												
 									break;
-								
-							
+															
 								case 'https://creativecommons.org/licenses/by-nc-nd/4.0/':
 									// CC-BY-NC-ND 
-									$license_item = 'Q24082749';
+									$licenses[] = 'Q24082749';
 									break;
 							
 								case 'https://creativecommons.org/licenses/by-nc-nd/1.0/':
 									// CC-BY-NC-ND 
-									$license_item = 'Q47008926';
+									$licenses[] = 'Q47008926';
 									break;
 								
 								case 'http://creativecommons.org/licenses/by-nc-nd/3.0':
 								case 'http://creativecommons.org/licenses/by-nc-nd/3.0/':
 									// CC-BY-NC-ND 3.0
-									$license_item = 'Q19125045';
+									$licenses[] = 'Q19125045';
 									break;								
 								
 								case 'http://creativecommons.org/licenses/by-nc-nd/4.0/':
 								case 'https://creativecommons.org/licenses/by-nc-nd/4.0/':
 									// CC-BY-NC-ND 4.0
-									$license_item = 'Q24082749';
+									$licenses[] = 'Q24082749';
 									break;
 								
 								case 'http://creativecommons.org/licenses/by-nc-sa/3.0/':
 								case 'http://creativecommons.org/licenses/by-nc-sa/3.0':
 									// CC-BY-NC-SA 3.0
-									$license_item = 'Q15643954';
+									$licenses[] = 'Q15643954';
 									break;
 								
 								case 'https://creativecommons.org/licenses/by-nc-sa/4.0/';
 								case 'http://creativecommons.org/licenses/by-nc-sa/4.0/';
 									// CC-BY-NC-SA 4.0
-									$license_item = 'Q42553662';
+									$licenses[] = 'Q42553662';
 									break;
-							
-												
+																			
 								default:
 									break;
 							}
-					
-							if ($license_item != '')
-							{
-								$w[] = array('P6216' => 'Q50423863');
-								$w[] = array('P275' => $license_item);
-							}					
+							
 						}
 					}
+					
+					// Add unique licenses
+					if (count($licenses) > 0)
+					{
+						$licenses = array_unique($licenses);
+						$w[] = array('P6216' => 'Q50423863'); // copyright
+						
+						foreach ($licenses as $license_item)
+						{
+							$w[] = array('P275' => $license_item);
+						}							
+					}
+					
 				}
 				break;
 				
