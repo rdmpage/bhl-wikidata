@@ -241,7 +241,7 @@ function add_from_doi($doi, $update = false)
 			{
 				$part = get_part_from_bhl_part($m['part']);
 				
-				if (0)
+				if (1)
 				{
 					echo '<pre>';
 					print_r($part);
@@ -278,6 +278,23 @@ function add_from_doi($doi, $update = false)
 					{
 						$work->message->BHL = $part->StartPageID;
 					}
+					
+					if (isset($part->Identifiers))
+					{
+						foreach ($part->Identifiers as $identifier)
+						{
+							switch ($identifier->IdentifierName)
+							{
+								case 'BioStor':
+									$work->message->BIOSTOR = $identifier->IdentifierValue;
+									break;
+									
+								default:
+									break;
+							}
+						
+						}
+					}					
 									
 				}
 			}
