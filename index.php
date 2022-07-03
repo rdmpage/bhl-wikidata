@@ -207,7 +207,7 @@ function add_from_doi($doi, $update = false)
 	$source = array();
 	
 	$check = true; // just to be safe
-	$check = false; // do you feel lucky?
+	//$check = false; // do you feel lucky?
 	
 	$detect_languages = array('en');
 	$detect_languages = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru');	
@@ -217,12 +217,13 @@ function add_from_doi($doi, $update = false)
 	$go = true;
 	
 	$item = wikidata_item_from_doi($doi);
+	
 	if ($item != '')
 	{
 		if (!$update)
 		{
 			$go = false;
-			$result = $item;
+			$result = $item;			
 		}
 	}
 	

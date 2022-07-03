@@ -1,31 +1,32 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
     "content-hash": "13674e665693bb10ea7c5579307e2597",
     "packages": [
         {
             "name": "patrickschur/language-detection",
-            "version": "v3.4.0",
+            "version": "v3.4.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/patrickschur/language-detection.git",
-                "reference": "95b55109177d5c4bd6b1bec6e8835cd0df36ef5f"
+                "reference": "9d7a45118289939ef46d8a02763c7fec32eed7ba"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/patrickschur/language-detection/zipball/95b55109177d5c4bd6b1bec6e8835cd0df36ef5f",
-                "reference": "95b55109177d5c4bd6b1bec6e8835cd0df36ef5f",
+                "url": "https://api.github.com/repos/patrickschur/language-detection/zipball/9d7a45118289939ef46d8a02763c7fec32eed7ba",
+                "reference": "9d7a45118289939ef46d8a02763c7fec32eed7ba",
                 "shasum": ""
             },
             "require": {
+                "ext-json": "*",
                 "ext-mbstring": "*",
-                "php": "^7"
+                "php": "^7.2"
             },
             "require-dev": {
-                "phpunit/phpunit": "^6"
+                "phpunit/phpunit": "^8.4.3"
             },
             "type": "library",
             "autoload": {
@@ -50,7 +51,11 @@
                 "detection",
                 "language"
             ],
-            "time": "2018-09-19T21:45:51+00:00"
+            "support": {
+                "issues": "https://github.com/patrickschur/language-detection/issues",
+                "source": "https://github.com/patrickschur/language-detection/tree/v3.4.2"
+            },
+            "time": "2019-11-16T14:23:06+00:00"
         }
     ],
     "packages-dev": [],
@@ -62,5 +67,6 @@
     "platform": {
         "ext-mbstring": "^7.1"
     },
-    "platform-dev": []
+    "platform-dev": [],
+    "plugin-api-version": "2.3.0"
 }

@@ -1343,7 +1343,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 		// already exists, if $update is false then exit		
 		if (!$update)
 		{
-			return;
+			return $item;
 		}	
 	}
 	
