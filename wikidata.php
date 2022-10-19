@@ -1706,7 +1706,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 			// this also suffers from errors in language detection :(
 			case 'original-title':
 				
-				if (1)
+				if (0)
 				{
 					$title = $v;
 				
