@@ -304,7 +304,7 @@ function add_from_doi($doi, $update = false)
 		
 		if ($work)
 		{
-			if (0) // 1 if we want to add references for each statement
+			if (1) // 1 if we want to add references for each statement
 			{
 				$agency = doi_to_agency($doi);
 	
