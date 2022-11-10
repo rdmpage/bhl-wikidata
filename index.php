@@ -153,16 +153,20 @@ function get_work($doi)
 	{
 		$obj = json_decode($json);
 		
-		if (!isset($obj->message))
+		if ($obj)
 		{
-			$obj->message = $obj;
-		}
 		
-		post_process($obj);
+			if (!isset($obj->message))
+			{
+				$obj->message = $obj;
+			}
 		
-		if ($agency != '')
-		{
-			$obj->message->DOIAgency = strtolower($agency);
+			post_process($obj);
+		
+			if ($agency != '')
+			{
+				$obj->message->DOIAgency = strtolower($agency);
+			}
 		}
 	}
 	return $obj;
@@ -375,7 +379,7 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 		
 		if ($id_type == 'unknown')
 		{
-			if (preg_match('/^10\.\d+/', $id))
+			if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
 			{
 				$id_type = 'doi';
 			}
@@ -384,9 +388,13 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 		switch ($id_type)
 		{
 			case 'doi':
-			default:
 				$results[$id] = add_from_doi($id);
 				break;
+				
+			default:
+				$results[$id] = null;
+				break;
+				
 		}
 		
 	}
@@ -434,16 +442,24 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 <?php
 
 $have_already = array();
+$bad_identifier = array();
 
 foreach ($results as $id => $result)
 {
-	if (preg_match('/^CREATE/', $result))
+	if ($result)
 	{
-		echo $result . "\n";
+		if (preg_match('/^CREATE/', $result))
+		{
+			echo $result . "\n";
+		}
+		else
+		{
+			$have_already[$id] = $result;
+		}
 	}
 	else
 	{
-		$have_already[$id] = $result;
+		$bad_identifier[] = $id;
 	}
 }
 
@@ -469,8 +485,21 @@ foreach ($results as $id => $result)
 			echo '</tr>';				
 		}
 		echo '</table>';
+		
 	
 	}
+	
+	if (count($bad_identifier) > 0)
+	{
+		echo '<h2>Bad identifier(s)</h2>';
+		echo '<ul>';
+		foreach ($bad_identifier as $id)
+		{
+			echo '<li>' . $id . '</li>';
+		}
+		echo '</ul>';
+	}
+	
 
 
 ?>
