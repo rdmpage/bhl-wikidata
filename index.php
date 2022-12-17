@@ -10,8 +10,6 @@ if (file_exists(dirname(__FILE__) . '/env.php'))
 
 require_once(dirname(__FILE__) . '/wikidata.php');
 
-
-
 //----------------------------------------------------------------------------------------
 function doi_to_agency($doi)
 {
@@ -122,7 +120,6 @@ function post_process(&$obj)
 
 	}
 }
-
 
 //----------------------------------------------------------------------------------------
 // Fetch DOI
@@ -394,7 +391,6 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 			default:
 				$results[$id] = null;
 				break;
-				
 		}
 		
 	}

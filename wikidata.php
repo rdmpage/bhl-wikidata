@@ -1201,9 +1201,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 		{
 			$item = wikidata_item_from_zoobank($work->message->ZOOBANK);
 		}
-		
-		
-	
+			
 		// JSTOR
 		if ($item == '')
 		{
@@ -1328,8 +1326,6 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				$parts[] = $work->message->{'issued'}->{'date-parts'}[0][0];
 			}
 			
-			//print_r($parts);
-	
 			if (count($parts) == 4)
 			{
 				$item = wikidata_item_from_openurl_issn($parts[0], $parts[1], $parts[2], $parts[3]);
@@ -1437,8 +1433,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 					default:
 						$w[] = array('P31' => 'Q13442814');						
 						$description = "Scholarly article";
-						break;						
-					
+						break;											
 				}
 				break;
 				
@@ -1481,17 +1476,8 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						foreach ($work->message->multi->_key->title as $language => $v)
 						{
 							$v = preg_replace('/\s+$/u', '', $v);
-							
-							//echo "|$v|\n";
-							
-							// full width right parenthesis
-							//$v = preg_replace('/）$/u', ')', $v);
-							
-							//echo "|$v|\n";
-							
 							$v = nice_strip_tags($v);
-							
-						
+													
 							// title
 							$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $v . '"');
 
@@ -1634,8 +1620,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 											
 										}	
 									}							
-								}
-								
+								}								
 							}
 						
 							if ($language == 'en')
@@ -1652,7 +1637,6 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 								// Can we deduce anything about the type of article?
 								
 								types_from_title($w, $title);
-							
 							}
 							else											
 							{
@@ -1674,6 +1658,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 								// label
 								$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
 							
+								/*
 								switch ($language)
 								{
 									case 'la':
@@ -1683,9 +1668,9 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 									default:
 										// language of work (assume it is the same as the title)
 										//$w[] = array('P407' => $language_map[$language]);	
-										break;
-								
+										break;								
 								}
+								*/
 							
 								// add label in English anyway
 								if ($always_english_label)
@@ -1704,8 +1689,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 			// CrossRef sometimes stores title in original language 
 			// but for some journals (e.g., Darwiniana this is simply the language :()
 			// this also suffers from errors in language detection :(
-			case 'original-title':
-				
+			case 'original-title':				
 				if (0)
 				{
 					$title = $v;
@@ -1759,8 +1743,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				// Note that we can't seem to add language codes to author names, they are just dumb strings
 				$count = 1;
 				foreach ($work->message->author as $author)
-				{
-					
+				{					
 					$done = false;
 										
 					// Do we have an ORCID?
@@ -1984,8 +1967,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 								
 								$name = $author->multi->_key->literal->zh . '(' . $author->multi->_key->literal->en . ')';
 							
-								$authors_done = true;
-							
+								$authors_done = true;							
 							}
 							
 							// for Japanese authors include English in parentheses (like Airti Library does)
@@ -1996,11 +1978,9 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 								
 								$name = $author->multi->_key->literal->ja . '(' . $author->multi->_key->literal->en . ')';
 							
-								$authors_done = true;
-							
+								$authors_done = true;							
 							}
-														
-							
+																					
 							if (!$authors_done)
 							{
 								foreach ($author->multi->_key->literal as $language => $v)
@@ -2034,6 +2014,12 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 									$parts[] = $author->family;
 									$ok = true;		
 								}
+								if (isset($author->suffix))
+								{
+									$parts[] = $author->suffix;
+									$ok = true;		
+								}
+								
 								$name = join(' ', $parts);				
 							}
 						}
