@@ -7,9 +7,9 @@ use LanguageDetection\Language;
 
 
 //----------------------------------------------------------------------------------------
+// Convert CSL author name to a simple string
 function csl_author_to_name($author)
 {
-	
 	$name = '';	
 	
 	// Get name as string
@@ -18,11 +18,17 @@ function csl_author_to_name($author)
 	{
 		$parts[] = $author->given;
 	}
+	
 	if (isset($author->family))
 	{
 		$parts[] = $author->family;
 	}
 	
+	if (isset($author->suffix))
+	{
+		$parts[] = $author->suffix;
+	}
+		
 	if (count($parts) > 0)
 	{								
 		$name = join(' ', $parts);	
@@ -1745,6 +1751,8 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				foreach ($work->message->author as $author)
 				{					
 					$done = false;
+					
+					// print_r($author);
 										
 					// Do we have an ORCID?
 					if (!$done)
@@ -1855,33 +1863,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						
 							if ($author_item != '')
 							{	
-								// Get name as string
-								$parts = array();
-								if (isset($author->given))
-								{
-									$parts[] = $author->given;
-									$ok = true;		
-								}
-								if (isset($author->family))
-								{
-									$parts[] = $author->family;
-									$ok = true;		
-								}
-								
-								$name = '';
-								
-								if (count($parts) > 0)
-								{								
-									$name = join(' ', $parts);	
-									$name = preg_replace('/\s\s+/u', ' ', $name);
-								}
-								else
-								{
-									if (isset($author->literal))
-									{
-										$name = $author->literal;
-									}								
-								}
+								$name = csl_author_to_name($author);
 								
 								$qualifiers = array();
 								
@@ -1929,7 +1911,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 					// If we've reached this point we only have literals, so add these
 					$ok = true;
 					if (!$done)
-					{
+					{						
 						/*
 						We may need to check for CrossRef weirdness, e.g. 
 						
@@ -1943,8 +1925,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
                                 (
                                 )
 
-                        )
-						
+                        )						
 						*/
 						
 						$ok = false; 
@@ -1994,39 +1975,9 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 							$ok = true;			
 						}
 						else 
-						{						
-							if (isset($author->literal))
-							{
-								$name = $author->literal;
-								
-								$ok = true;		
-							}
-							else
-							{
-								$parts = array();
-								if (isset($author->given))
-								{
-									$parts[] = $author->given;
-									$ok = true;		
-								}
-								if (isset($author->family))
-								{
-									$parts[] = $author->family;
-									$ok = true;		
-								}
-								if (isset($author->suffix))
-								{
-									$parts[] = $author->suffix;
-									$ok = true;		
-								}
-								
-								$name = join(' ', $parts);				
-							}
-						}
-						
-						if ($name == '')
 						{
-							$ok = false;
+							$name = csl_author_to_name($author);
+							$ok = ($name !== "");
 						}
 					
 						if ($ok == true)
