@@ -412,6 +412,11 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 		
 	button {
 		font-size:1em;
+		background-color:blue;
+		color:white;
+		border:1px solid white;
+		padding:1em;
+		border-radius:4px;
 	}
 	
 	a {
@@ -423,10 +428,10 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 </head>
 <body>
 <h1>
-	<a href=".">BHL to Wikidata</a>
+	<a href=".">[Home]</a>
 </h1>
 
-<p>You can create a new item, or update an existing one, in QuickStatements:</p>
+<p>You can create a new item in QuickStatements:</p>
 
 
 <form action='https://tools.wmflabs.org/quickstatements/api.php' method='post' target='_blank'>
@@ -528,6 +533,11 @@ else
 		
 	button {
 		font-size:1em;
+		background-color:blue;
+		color:white;
+		border:1px solid white;
+		padding:1em;
+		border-radius:4px;
 	}
 	
 	a {
@@ -548,7 +558,7 @@ Enter one or more DOIs, one per line. The tool checks whether the DOIs already e
 if not it will create Quickstatements for them so you can add them yourself.</p>
 
 <form method="get">
-	<textarea style="font-size:1em;box-sizing: border-box;width:100%;" id="ids"  name="ids" rows="10" ></textarea>
+	<textarea style="font-size:1em;box-sizing: border-box;width:100%;" id="ids"  name="ids" rows="10" placeholder="Enter DOIs here, one per line" ></textarea>
     <br />
     <!-- <button type="submit" name="check">Check</button> -->
     <button type="submit" name="add">Check and add</button>

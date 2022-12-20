@@ -4,7 +4,7 @@
 <dict>
 	<key>EmbeddedEditorHidden:rpage</key>
 	<false/>
-	<key>ExpandedEditorWidth:rpage:displays([(0, 0), (3440, 1440)])</key>
+	<key>ExpandedEditorWidth:rpage:displays([(0, 0), (1512, 982)])</key>
 	<integer>870</integer>
 	<key>ExpandedItems:rpage</key>
 	<array/>
@@ -262,7 +262,7 @@
 	<key>OpenDocumentsExpanded</key>
 	<true/>
 	<key>OpenDocumentsSplitterProportion</key>
-	<real>0.75473251028806587</real>
+	<real>1.0010917030567685</real>
 	<key>ProjectItemsExpanded</key>
 	<true/>
 	<key>ProjectViewVisible</key>
@@ -271,7 +271,7 @@
 	<array>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -314,7 +314,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -357,7 +357,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -398,7 +398,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -441,7 +441,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -482,7 +482,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -523,7 +523,7 @@
 		</dict>
 		<dict>
 			<key>Date</key>
-			<date>2022-12-18T10:34:58Z</date>
+			<date>2022-12-18T14:59:19Z</date>
 			<key>Location</key>
 			<dict>
 				<key>BookmarkData</key>
@@ -566,14 +566,14 @@
 	<key>ScratchpadItemsExpanded</key>
 	<true/>
 	<key>ScratchpadItemsVisible</key>
-	<true/>
+	<false/>
 	<key>ShowSCMData:rpage</key>
 	<false/>
 	<key>ToolbarVisible:rpage</key>
 	<false/>
 	<key>ViewSplitterPosition:rpage</key>
 	<real>0.18918919563293457</real>
-	<key>WindowFrame:rpage:displays([(0, 0), (3440, 1440)])</key>
-	<string>rect(197,568,1412,1641)</string>
+	<key>WindowFrame:rpage:displays([(0, 0), (1512, 982)])</key>
+	<string>rect(66,439,982,1512)</string>
 </dict>
 </plist>
