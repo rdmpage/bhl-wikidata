@@ -4,6 +4,7 @@ error_reporting(E_ALL);
 
 require_once 'vendor/autoload.php';
 use LanguageDetection\Language;
+use Biblys\Isbn\Isbn as Isbn;
 
 
 //----------------------------------------------------------------------------------------
@@ -755,10 +756,7 @@ function wikidata_item_from_isbn10($isbn10)
 {
 	$item = '';
 
-	$isbns = array($isbn10);
-	
-	$isbn = new Isbn($isbn10);
-	$isbns[] = $isbn->format("ISBN-10");
+	$isbns[] = Isbn::convertToIsbn10($isbn10);
 	
 	// print_r($isbns);
 	
@@ -792,10 +790,7 @@ function wikidata_item_from_isbn13($isbn13)
 {
 	$item = '';
 	
-	$isbns = array($isbn13);
-	
-	$isbn = new Isbn($isbn13);
-	$isbns[] = $isbn->format("ISBN-13");
+	$isbns[] = Isbn::convertToIsbn10($isbn13);
 	
 	foreach ($isbns as $id)
 	{

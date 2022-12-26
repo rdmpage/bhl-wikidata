@@ -4,8 +4,61 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "13674e665693bb10ea7c5579307e2597",
+    "content-hash": "e5a654e4b99f33c4eba0ff6462a9005e",
     "packages": [
+        {
+            "name": "biblys/isbn",
+            "version": "2.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/biblys/isbn.git",
+                "reference": "f5253b5346bda5f5ae29c30bcc2660d8f116f1fa"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/biblys/isbn/zipball/f5253b5346bda5f5ae29c30bcc2660d8f116f1fa",
+                "reference": "f5253b5346bda5f5ae29c30bcc2660d8f116f1fa",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.2"
+            },
+            "require-dev": {
+                "ext-json": "*",
+                "ext-simplexml": "*",
+                "guzzlehttp/guzzle": "^6.2",
+                "phpunit/phpunit": "^6 || ^7"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "Biblys": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Clement Bourgoin",
+                    "email": "c@iwzr.fr"
+                }
+            ],
+            "description": "A PHP library to convert and validate ISBNs",
+            "homepage": "https://github.com/biblys/isbn",
+            "keywords": [
+                "ISBN",
+                "book",
+                "ean",
+                "gtin"
+            ],
+            "support": {
+                "issues": "https://github.com/biblys/isbn/issues",
+                "source": "https://github.com/biblys/isbn/tree/2.6.0"
+            },
+            "time": "2022-11-26T00:00:00+00:00"
+        },
         {
             "name": "patrickschur/language-detection",
             "version": "v3.4.2",
