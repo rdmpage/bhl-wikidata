@@ -211,7 +211,7 @@ function add_from_doi($doi, $update = false)
 	//$check = false; // do you feel lucky?
 	
 	$detect_languages = array('en');
-	$detect_languages = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru');	
+	$detect_languages = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru', 'ar', 'pa', 'hi');	
 	
 	$doi = strtolower($doi);
 	
