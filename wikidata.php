@@ -790,7 +790,9 @@ function wikidata_item_from_isbn13($isbn13)
 {
 	$item = '';
 	
-	$isbns[] = Isbn::convertToIsbn10($isbn13);
+	$isbns[] = Isbn::convertToIsbn13($isbn13);
+	
+	// print_r($isbns);
 	
 	foreach ($isbns as $id)
 	{
@@ -1412,15 +1414,20 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						$w[] = array('P31' => $dissertation_type);						
 						$description = "Dissertation";
 						break;
-						
+												
 					case 'book-chapter':
 						$w[] = array('P31' => 'Q1980247');						
 						$description = "Book chapter";
 						break;	
-						
+												
 					case 'book':
 						$w[] = array('P31' => 'Q571'); // book						
 						$description = "Book";
+						break;		
+
+					case 'edited-book':
+						$w[] = array('P31' => 'Q1711593'); // edited volume						
+						$description = "Edited book";
 						break;		
 						
 					case 'monograph':		
@@ -2221,7 +2228,6 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				switch ($work->message->type)
 				{
 					case 'book-chapter':
-						
 						$isbn_string = $v[0];
 						
 						$book = '';
@@ -2234,7 +2240,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						{
 							$book = wikidata_item_from_isbn13($isbn_string);
 						}
-						
+												
 						if ($book != '')
 						{
 							// part of
@@ -2258,21 +2264,19 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 			
 						foreach ($isbns as $isbn_string)
 						{
-							$isbn = new Isbn($isbn_string);
-						
 							switch (strlen($isbn_string))
 							{
 								case 10:
 									// echo " Line: " . __LINE__ . "\n";
 
-									$w[] = array('P957' => '"' .  $isbn->format("ISBN-10") . '"' );			
+									$w[] = array('P957' => '"' .  Isbn::convertToIsbn10($isbn_string) . '"' );			
 									break;
 					
 								case 13:
 									// echo " Line: " . __LINE__ . "\n";
 				
 				
-									$w[] = array('P212' => '"' .  $isbn->format("ISBN-13") . '"' );
+									$w[] = array('P212' => '"' . Isbn::convertToIsbn13($isbn_string) . '"' );
 									break;
 					
 								default:
