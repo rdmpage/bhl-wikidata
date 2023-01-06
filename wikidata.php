@@ -6,7 +6,6 @@ require_once 'vendor/autoload.php';
 use LanguageDetection\Language;
 use Biblys\Isbn\Isbn as Isbn;
 
-
 //----------------------------------------------------------------------------------------
 // Convert CSL author name to a simple string
 function csl_author_to_name($author)
@@ -3173,6 +3172,111 @@ function wikidata_find_from_anything ($work)
 
 }
 
+//----------------------------------------------------------------------------------------
+// Update based on subset of data, e.g. citations
+// Convert a csl json object to Wikidata quickstatments
+function update_citation_data($work, $item, $source = array())
+{
+	$quickstatements = '';
+	
+	$w = array();
+		
+	foreach ($work->message as $k => $v)
+	{	
+		switch ($k)
+		{
+				
+			case 'reference':
+				foreach ($v as $reference)
+				{
+					
+					if (isset($reference->DOI))
+					{
+						// for now just see if this already exists
+						$cited = wikidata_item_from_doi($reference->DOI);
+						if ($cited != '')
+						{
+							$w[] = array('P2860' => $cited);
+						}					
+					}
+					else
+					{
+						// lets try metadata-based search (OpenURL)
+						$parts = array();
+	
+						if (isset($reference->ISSN))
+						{
+							$parts[] = str_replace("http://id.crossref.org/issn/", '', $reference->ISSN);
 
+							if (isset($reference->volume))
+							{
+								$parts[] = $reference->volume;
+							}
+							if (isset($reference->{'first-page'}))
+							{
+								$parts[] = $reference->{'first-page'};
+							}
+							if (isset($reference->year))
+							{
+								$parts[] = $reference->year;
+							}	
+	
+							if (count($parts == 4))
+							{
+								$cited = wikidata_item_from_openurl_issn($parts[0], $parts[1], $parts[2], $parts[3]);
+								
+								if ($cited != '')
+								{								
+									$w[] = array('P2860' => $cited);
+								}	
+							}						
+						}
+					}
+					
+				}
+				break;
+	
+			default:
+				break;
+		}
+	}
+	
+	
+	foreach ($w as $statement)
+	{
+		foreach ($statement as $property => $value)
+		{
+			$row = array();
+			$row[] = $item;
+			$row[] = $property;
+			$row[] = $value;
+		
+			$quickstatements .= join("\t", $row);
+			
+			// labels don't get references 
+			$properties_to_ignore = array();
+			
+			$properties_to_ignore = array(
+				'P724',
+				'P953',
+				'P407', // language of work is almost never set by the source
+				'P1922',
+			); // e.g., when adding PDFs or IA to records from JSTOR
+							
+			if (count($source) > 0 && !preg_match('/^[D|L]/', $property) && !in_array($property, $properties_to_ignore))
+			{
+				$quickstatements .= "\t" . join("\t", $source);
+			}
+			
+			$quickstatements .= "\n";
+			
+		}
+	}
+	
+	
+	return $quickstatements;
+
+	
+}
 
 ?>
