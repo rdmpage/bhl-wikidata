@@ -791,7 +791,7 @@ function wikidata_item_from_isbn13($isbn13)
 	
 	$isbns[] = Isbn::convertToIsbn13($isbn13);
 	
-	// print_r($isbns);
+	//print_r($isbns);
 	
 	foreach ($isbns as $id)
 	{
@@ -1420,7 +1420,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						break;	
 												
 					case 'book':
-						$w[] = array('P31' => 'Q571'); // book						
+						$w[] = array('P31' => 'Q47461344'); // written work						
 						$description = "Book";
 						break;		
 
@@ -1433,7 +1433,17 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						$w[] = array('P31' => 'Q571'); // book
 						$w[] = array('P31' => 'Q193495'); // monograph						
 						$description = "Monograph";
-						break;		
+						break;	
+						
+					case 'reference-book':
+						$w[] = array('P31' => 'Q47461344'); // written work						
+						$description = "Book";
+						break;	
+						
+					case 'report':	
+						$w[] = array('P31' => 'Q10870555'); // report					
+						$description = "Report";
+						break;							
 													
 					case 'article-journal':
 					case 'journal-article':
@@ -2140,13 +2150,20 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						$w[] = array('P4901' => '"' . $m['id'] . '"');
 					}
 				}
-				
-				// book chapter DOIs may include ISBN which we cna use to link to parent book
-				if (isset($work->type) && ($work->message->type == 'book-chapter') && !isset($work->message->ISBN))
+
+				// book chapter DOIs may include ISBN which we can use to link to parent book
+				if (isset($work->message->type) && ($work->message->type == 'book-chapter') && !isset($work->message->ISBN))
 				{
 					$isbn_string = '';
 					
+					// California
 					if (preg_match('/10.1525\/california\/(?<isbn>978\d+)\./', $work->message->DOI, $m))
+					{
+						$isbn_string = $m['isbn'];
+					}
+
+					// Springer
+					if (preg_match('/10.1007\/(?<isbn>978(-\d+)+)_/', $work->message->DOI, $m))
 					{
 						$isbn_string = $m['isbn'];
 					}
