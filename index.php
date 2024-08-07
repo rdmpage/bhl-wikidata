@@ -11,8 +11,33 @@ if (file_exists(dirname(__FILE__) . '/env.php'))
 require_once(dirname(__FILE__) . '/shared.php');
 require_once(dirname(__FILE__) . '/wikidata.php');
 
-
-
+//----------------------------------------------------------------------------------------
+// Get BHL part from DOI (typically an external id)
+function get_part_from_doi($doi)
+{
+	$part = null;
+	
+	$parameters = array(
+		'op' 		=> 'GetPartByIdentifier',
+		'type'		=> 'doi',
+		'value'		=> strtolower($doi),
+		'apikey'	=> getenv('BHL_API_KEY'),
+		'format'	=> 'json'
+	);
+	
+	$url = 'https://www.biodiversitylibrary.org/api2/httpquery.ashx?' . http_build_query($parameters);
+	
+	$json = get($url);
+	
+	$obj = json_decode($json);
+	
+	if ($obj && isset($obj->Result))
+	{
+		$part = $obj->Result[0];
+	}
+	
+	return $part;
+}
 
 //----------------------------------------------------------------------------------------
 function get_part_from_bhl_part($id)
@@ -41,7 +66,6 @@ function get_part_from_bhl_part($id)
 	
 	return $part;
 }
-
 
 //----------------------------------------------------------------------------------------
 function add_from_doi($doi, $update = false)
@@ -81,10 +105,21 @@ function add_from_doi($doi, $update = false)
 		{
 			// anything extra?
 			
-			// If this is a BHL DOI for a part we attempt to match authors to BHL ids
+			// Is a BHL part?
+			$part = null;
 			if (preg_match('/10\.5962\/(bhl\.part|p)\.(?<part>\d+)/i', $doi, $m))
 			{
-				$part = get_part_from_bhl_part($m['part']);
+				// If this is a BHL DOI for a part we attempt to match authors to BHL ids
+				$part = get_part_from_bhl_part($m['part']);				
+			}
+			else
+			{
+				// DOI might be an external DOI in BHL
+				$part = get_part_from_doi($doi);							
+			}
+			
+			if ($part)
+			{
 				
 				if (0)
 				{
@@ -163,6 +198,17 @@ function add_from_doi($doi, $update = false)
 						$source[] = 'S854';
 						$source[] = '"' . $url . '"';
 						break;
+						
+					case 'DataCite':
+						$url = 'https://doi.org/' . $doi;	
+						
+						$source[] = 'S248';
+						$source[] = 'Q821542'; // DataCite
+							
+						$source[] = 'S854';
+						$source[] = '"' . $url . '"';
+						break;
+						
 	
 					case 'JaLC':
 						$url = 'https://doi.org/' . $doi;	
