@@ -42,47 +42,49 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 		{
 			case 'doi':
 				
-				// Do we have this already in wikidata?
-				$item = wikidata_item_from_doi($id);
+				try {
+					// Do we have this already in wikidata?
+					$item = wikidata_item_from_doi($id);
 
-				// If not found then retrun	
-				if ($item == '')
-				{
-					$results[$id] = null;
-				}
-				else
-				{
-					$work = get_work($id);
-					
-					if ($work)
+					// If not found then retrun	
+					if ($item == '')
 					{
-			
-						$source = array();
-			
-						$source[] = 'S248';
-						$source[] = 'Q5188229';
-							
-						if (preg_match('/[\[|<|;]/', $id))
+						$results[$id] = null;
+					}
+					else
+					{
+						$work = get_work($id);
+						
+						if ($work)
 						{
-							// Some DOIs (such as BioOne SICIs) break Quickstatements
-							// so we don't add these as the source
+				
+							$source = array();
+				
+							$source[] = 'S248';
+							$source[] = 'Q5188229';
+								
+							if (preg_match('/[\[|<|;]/', $id))
+							{
+								// Some DOIs (such as BioOne SICIs) break Quickstatements
+								// so we don't add these as the source
+							}
+							else
+							{				
+								// DOI seems fine, so be explict about source of data
+								$source[] = 'S854';
+								$source[] = '"https://api.crossref.org/v1/works/' . $id . '"';
+							}
+				
+							$results[$id] = update_citation_data($work, $item, $source);
 						}
-						else
-						{				
-							// DOI seems fine, so be explict about source of data
-							$source[] = 'S854';
-							$source[] = '"https://api.crossref.org/v1/works/' . $id . '"';
-						}
-			
-						$results[$id] = update_citation_data($work, $item, $source);
 					}
 				}
-				break;
-				
-			default:
+				catch (Exception $e) {
+					error_log("Error processing DOI $id: " . $e->getMessage());
+					$results[$id] = null;
+				}
 				break;
 		}
-		
 	}
 	
 	//print_r($results);

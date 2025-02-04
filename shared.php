@@ -47,48 +47,56 @@ function doi_to_agency($doi)
 // Fetch DOI
 function get_work($doi)
 {
-	$obj = null;
-	$json = '';
-	
-	$agency = doi_to_agency($doi);
-	
-	switch ($agency)
+	try
 	{
-		case 'Crossref':	
-			$url = 'https://api.crossref.org/v1/works/' . $doi;
-			$json = get($url);
-			break;
-	
-		case 'JaLC':
-		default:
-			$url = 'https://doi.org/' . $doi;	
-			$json = get($url, '', 'application/vnd.citationstyles.csl+json');		
-			break;	
-	}
-	
-	// echo $json;
-	
-	if ($json != '')
-	{
-		$obj = json_decode($json);
+		$obj = null;
+		$json = '';
 		
-		if ($obj)
+		$agency = doi_to_agency($doi);
+		
+		switch ($agency)
 		{
+			case 'Crossref':	
+				$url = 'https://api.crossref.org/v1/works/' . $doi;
+				$json = get($url);
+				break;
 		
-			if (!isset($obj->message))
+			case 'JaLC':
+			default:
+				$url = 'https://doi.org/' . $doi;	
+				$json = get($url, '', 'application/vnd.citationstyles.csl+json');		
+				break;	
+		}
+		
+		// echo $json;
+		
+		if ($json != '')
+		{
+			$obj = json_decode($json);
+			
+			if ($obj)
 			{
-				$obj->message = $obj;
-			}
-		
-			post_process($obj);
-		
-			if ($agency != '')
-			{
-				$obj->message->DOIAgency = strtolower($agency);
+			
+				if (!isset($obj->message))
+				{
+					$obj->message = $obj;
+				}
+			
+				post_process($obj);
+			
+				if ($agency != '')
+				{
+					$obj->message->DOIAgency = strtolower($agency);
+				}
 			}
 		}
+		return $obj;
 	}
-	return $obj;
+	catch (Exception $e)
+	{
+		error_log("Error in get_work for DOI $doi: " . $e->getMessage());
+        return null;
+	}
 }
 
 //----------------------------------------------------------------------------------------
