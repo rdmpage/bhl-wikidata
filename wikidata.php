@@ -3244,7 +3244,7 @@ function update_citation_data($work, $item, $source = array())
 								$parts[] = $reference->year;
 							}	
 	
-							if (count($parts == 4))
+							if (count($parts) == 4)
 							{
 								$cited = wikidata_item_from_openurl_issn($parts[0], $parts[1], $parts[2], $parts[3]);
 								
@@ -3254,21 +3254,19 @@ function update_citation_data($work, $item, $source = array())
 								}	
 							}						
 						}
-					}
-					else if (isset($reference->unstructured))
-					{
-						// Skip unstructured references as we can't reliably parse them
-						continue;
-					}
-					else if (!is_array($source))
-					{
-						error_log("Invalid source array");
-						$source = array();
-					}
-					catch (Exception $e)
-					{
+						else if (isset($reference->unstructured))
+						{
+							// Skip unstructured references as we can't reliably parse them
+							continue;
+						}
+						else if (!is_array($source))
+						{
+							error_log("Invalid source array");
+							$source = array();
+						}
+					} catch (Exception $e) {
 						error_log("Error processing reference: " . $e->getMessage());
-                        continue;
+						continue;
 					}
 				}
 				break;
