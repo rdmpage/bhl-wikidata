@@ -3194,35 +3194,40 @@ function wikidata_find_from_anything ($work)
 // Convert a csl json object to Wikidata quickstatments
 function update_citation_data($work, $item, $source = array())
 {
-	$quickstatements = '';
+	if (!isset($work->message)) {
+		error_log("Invalid work data structure");
+		return null;
+	}
 	
+	$quickstatements = '';
 	$w = array();
 		
 	foreach ($work->message as $k => $v)
 	{	
 		switch ($k)
 		{
-				
 			case 'reference':
+				if (!is_array($v)) 
+				{
+					continue 2;  // Changed to continue 2 to properly skip to next iteration of foreach
+				}
+
 				foreach ($v as $reference)
 				{
-					
-					if (isset($reference->DOI))
-					{
-						// for now just see if this already exists
-						$cited = wikidata_item_from_doi($reference->DOI);
-						if ($cited != '')
+					try {
+						if (isset($reference->DOI))
 						{
-							$w[] = array('P2860' => $cited);
-						}					
-					}
-					else
-					{
-						// lets try metadata-based search (OpenURL)
-						$parts = array();
-	
-						if (isset($reference->ISSN))
+							// for now just see if this already exists
+							$cited = wikidata_item_from_doi($reference->DOI);
+							if ($cited != '')
+							{
+								$w[] = array('P2860' => $cited);
+							}					
+						}
+						else if (isset($reference->ISSN))
 						{
+							// lets try metadata-based search (OpenURL)
+							$parts = array();
 							$parts[] = str_replace("http://id.crossref.org/issn/", '', $reference->ISSN);
 
 							if (isset($reference->volume))
@@ -3238,7 +3243,7 @@ function update_citation_data($work, $item, $source = array())
 								$parts[] = $reference->year;
 							}	
 	
-							if (count($parts == 4))
+							if (count($parts) == 4)
 							{
 								$cited = wikidata_item_from_openurl_issn($parts[0], $parts[1], $parts[2], $parts[3]);
 								
@@ -3248,8 +3253,20 @@ function update_citation_data($work, $item, $source = array())
 								}	
 							}						
 						}
+						else if (isset($reference->unstructured))
+						{
+							// Skip unstructured references as we can't reliably parse them
+							continue;
+						}
+						else if (!is_array($source))
+						{
+							error_log("Invalid source array");
+							$source = array();
+						}
+					} catch (Exception $e) {
+						error_log("Error processing reference: " . $e->getMessage());
+						continue;
 					}
-					
 				}
 				break;
 	
