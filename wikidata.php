@@ -3206,11 +3206,10 @@ function update_citation_data($work, $item, $source = array())
 	{	
 		switch ($k)
 		{
-				
 			case 'reference':
 				if (!is_array($v)) 
 				{
-					continue;
+					continue 2;  // Changed to continue 2 to properly skip to next iteration of foreach
 				}
 
 				foreach ($v as $reference)
