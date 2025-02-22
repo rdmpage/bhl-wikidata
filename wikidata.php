@@ -2612,19 +2612,46 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				
 			//----------------------------------------------------------------------------
 			case 'reference':
+			case 'references':
+				if (!is_array($v)) 
+				{
+					error_log("References field is not an array");
+					continue 2;
+				}
+
+				error_log("Processing " . count($v) . " references");
+				
 				foreach ($v as $reference)
 				{
-					
-					if (isset($reference->DOI))
-					{
-						// for now just see if this already exists
-						$cited = wikidata_item_from_doi($reference->DOI);
-						if ($cited != '')
-						{
-							$w[] = array('P2860' => $cited);
-						}					
+					try {
+						// Debug the reference structure
+						error_log("Processing reference: " . json_encode($reference));
+						
+						// Handle both direct DOI and doi-asserted-by cases
+						$doi = null;
+						if (isset($reference->DOI)) {
+							$doi = $reference->DOI;
+						} else if (isset($reference->{'doi-asserted-by'}) && isset($reference->DOI)) {
+							$doi = $reference->DOI;
+						}
+
+						if ($doi) {
+							error_log("Found DOI: " . $doi);
+							$cited = wikidata_item_from_doi($doi);
+							if ($cited != '')
+							{
+								error_log("Found Wikidata item: " . $cited);
+								$w[] = array('P2860' => $cited);
+							} else {
+								error_log("No Wikidata item found for DOI: " . $doi);
+							}                    
+						} else {
+							error_log("No DOI found in reference");
+						}
+					} catch (Exception $e) {
+						error_log("Error processing reference: " . $e->getMessage());
+						continue;
 					}
-					
 				}
 				break;
 				
