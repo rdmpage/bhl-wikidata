@@ -2646,7 +2646,8 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 								error_log("No Wikidata item found for DOI: " . $doi);
 							}                    
 						} else {
-							error_log("No DOI found in reference");
+							error_log("No DOI found in reference with key: " . 
+								(isset($reference->key) ? $reference->key : 'unknown'));
 						}
 					} catch (Exception $e) {
 						error_log("Error processing reference: " . $e->getMessage());
