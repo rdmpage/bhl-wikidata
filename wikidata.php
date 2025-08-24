@@ -229,7 +229,7 @@ function wikidata_item_from_internet_archive($ia)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P724 "' . $ia . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -285,7 +285,7 @@ function wikidata_item_from_doi($doi)
 	
 	//echo $sparql . "\n";
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 	
 	//echo $json;
@@ -316,7 +316,7 @@ function wikidata_item_from_pmc($pmc)
 	
 	//echo $sparql . "\n";
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 	
 	//echo $json;
@@ -345,7 +345,7 @@ function wikidata_item_from_url($url)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P953 <' . $url . '> }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 	
 	
@@ -375,7 +375,7 @@ function wikidata_item_from_jstor($jstor)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P888 "' . $jstor . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -402,7 +402,7 @@ function wikidata_item_from_pmid($pmid)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P698 "' . $pmid . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -430,7 +430,7 @@ function wikidata_item_from_bhl_part($bhl_part)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P6535 "' . $bhl_part . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -458,7 +458,7 @@ function wikidata_item_from_biostor($biostor)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P5315 "' . $biostor . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -485,7 +485,7 @@ function wikidata_item_from_cnki($cnki)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P6769 "' . $cnki . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -512,7 +512,7 @@ function wikidata_item_from_persee_article($perse)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P8758 "' . $perse . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -539,7 +539,7 @@ function wikidata_item_from_dialnet($dialnet)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P1610 "' . $dialnet . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -566,7 +566,7 @@ function wikidata_item_from_cinii($cinii)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P2409 "' . $cinii . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -593,7 +593,7 @@ function wikidata_item_from_zoobank($zoobank)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P2007 "' . $zoobank . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -621,7 +621,7 @@ function wikidata_item_from_pdf($pdf)
 	// URI
 	$sparql = 'SELECT * WHERE { ?work wdt:P953 <' . $pdf . '> }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 			
 	if ($json != '')
@@ -648,7 +648,7 @@ function wikidata_item_from_handle($handle)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P1184 "' . $handle . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -675,7 +675,7 @@ function wikidata_item_from_sudoc($sudoc)
 	
 	$sparql = 'SELECT * WHERE { ?work wdt:P1025 "' . $sudoc . '" }';
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')

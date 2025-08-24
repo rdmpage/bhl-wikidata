@@ -31,7 +31,7 @@ function get_part_from_doi($doi)
 	
 	$obj = json_decode($json);
 	
-	if ($obj && isset($obj->Result))
+	if ($obj && isset($obj->Result) && count($obj->Result) > 0)
 	{
 		$part = $obj->Result[0];
 	}
