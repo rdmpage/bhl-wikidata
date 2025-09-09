@@ -1,9 +1,9 @@
 {
     "name": "rpage/bhl-wikidata",
     "require": {
-        "ext-mbstring": "^7.1",
-        "patrickschur/language-detection": "^3.4",
-        "biblys/isbn": "^2.6.0"
+        "ext-mbstring": "*",
+        "patrickschur/language-detection": "*",
+        "biblys/isbn": "*"
     },
     "authors": [
         {

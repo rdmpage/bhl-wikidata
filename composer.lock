@@ -4,30 +4,30 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e5a654e4b99f33c4eba0ff6462a9005e",
+    "content-hash": "a9aebe3c5b04a8a0f4a570951e62b880",
     "packages": [
         {
             "name": "biblys/isbn",
-            "version": "2.6.0",
+            "version": "3.2.30",
             "source": {
                 "type": "git",
                 "url": "https://github.com/biblys/isbn.git",
-                "reference": "f5253b5346bda5f5ae29c30bcc2660d8f116f1fa"
+                "reference": "60523d9ddae489ccfce35d605588d13510ee74fd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/biblys/isbn/zipball/f5253b5346bda5f5ae29c30bcc2660d8f116f1fa",
-                "reference": "f5253b5346bda5f5ae29c30bcc2660d8f116f1fa",
+                "url": "https://api.github.com/repos/biblys/isbn/zipball/60523d9ddae489ccfce35d605588d13510ee74fd",
+                "reference": "60523d9ddae489ccfce35d605588d13510ee74fd",
                 "shasum": ""
             },
             "require": {
-                "php": "^7.2"
+                "php": "^7.2 || ^8.0"
             },
             "require-dev": {
                 "ext-json": "*",
                 "ext-simplexml": "*",
-                "guzzlehttp/guzzle": "^6.2",
-                "phpunit/phpunit": "^6 || ^7"
+                "guzzlehttp/guzzle": "^7.0",
+                "phpunit/phpunit": "^6 || ^7 || ^8 || ^11 || ^12"
             },
             "type": "library",
             "autoload": {
@@ -41,8 +41,8 @@
             ],
             "authors": [
                 {
-                    "name": "Clement Bourgoin",
-                    "email": "c@iwzr.fr"
+                    "name": "Clement Latzarus",
+                    "email": "hello@clemlatz.dev"
                 }
             ],
             "description": "A PHP library to convert and validate ISBNs",
@@ -55,31 +55,37 @@
             ],
             "support": {
                 "issues": "https://github.com/biblys/isbn/issues",
-                "source": "https://github.com/biblys/isbn/tree/2.6.0"
+                "source": "https://github.com/biblys/isbn/tree/3.2.30"
             },
+            "funding": [
+                {
+                    "url": "https://liberapay.com/clemlatz",
+                    "type": "liberapay"
+                }
+            ],
             "time": "2022-11-26T00:00:00+00:00"
         },
         {
             "name": "patrickschur/language-detection",
-            "version": "v3.4.2",
+            "version": "v5.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/patrickschur/language-detection.git",
-                "reference": "9d7a45118289939ef46d8a02763c7fec32eed7ba"
+                "reference": "df8d32021b2ef9fde52e6fcccb83e3806822c9c6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/patrickschur/language-detection/zipball/9d7a45118289939ef46d8a02763c7fec32eed7ba",
-                "reference": "9d7a45118289939ef46d8a02763c7fec32eed7ba",
+                "url": "https://api.github.com/repos/patrickschur/language-detection/zipball/df8d32021b2ef9fde52e6fcccb83e3806822c9c6",
+                "reference": "df8d32021b2ef9fde52e6fcccb83e3806822c9c6",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
                 "ext-mbstring": "*",
-                "php": "^7.2"
+                "php": "^7.4 || ^8.0"
             },
             "require-dev": {
-                "phpunit/phpunit": "^8.4.3"
+                "phpunit/phpunit": "^9.5.0"
             },
             "type": "library",
             "autoload": {
@@ -106,20 +112,20 @@
             ],
             "support": {
                 "issues": "https://github.com/patrickschur/language-detection/issues",
-                "source": "https://github.com/patrickschur/language-detection/tree/v3.4.2"
+                "source": "https://github.com/patrickschur/language-detection/tree/v5.3.1"
             },
-            "time": "2019-11-16T14:23:06+00:00"
+            "time": "2025-03-25T22:47:08+00:00"
         }
     ],
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "ext-mbstring": "^7.1"
+        "ext-mbstring": "*"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.6.0"
 }
