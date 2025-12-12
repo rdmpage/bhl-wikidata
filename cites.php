@@ -17,25 +17,48 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	// process
 	$results = array();
 	
-	$ids = explode("\n", trim($_GET['ids']));
+	$raw_ids = explode("\n", trim($_GET['ids']));
+	$ids = array();
+	$input_dois = array();
+	
+	foreach ($raw_ids as $raw_id)
+	{
+		$id = trim($raw_id);
+		
+		if ($id == '')
+		{
+			continue;
+		}
+		
+		$id_type = 'unknown';
+		
+		if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
+		{
+			$id_type = 'doi';
+			$input_dois[] = $id;
+		}
+		
+		$ids[] = array(
+			'value' => $id,
+			'type' => $id_type
+		);
+	}
+	
+	$prefetched_items = array();
+	
+	if (count($input_dois) > 0)
+	{
+		$prefetched_items = wikidata_items_from_dois($input_dois);
+	}
 	
 	//echo '<pre>';
 	//print_r($ids);
 	
-	foreach ($ids as $id)
+	foreach ($ids as $entry)
 	{
-		$id = trim($id);
+		$id = $entry['value'];
+		$id_type = $entry['type'];
 	
-		$id_type = 'unknown';
-		
-		if ($id_type == 'unknown')
-		{
-			if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
-			{
-				$id_type = 'doi';
-			}
-		}
-		
 		$results[$id] = null; // default is we have nothing
 		
 		switch ($id_type)
@@ -43,7 +66,17 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 			case 'doi':
 				
 				// Do we have this already in wikidata?
-				$item = wikidata_item_from_doi($id);
+				$item = '';
+				$lookup_key = mb_strtoupper($id);
+				
+				if ($lookup_key != '' && isset($prefetched_items[$lookup_key]))
+				{
+					$item = $prefetched_items[$lookup_key];
+				}
+				else
+				{
+					$item = wikidata_item_from_doi($id);
+				}
 
 				// If not found then retrun	
 				if ($item == '')

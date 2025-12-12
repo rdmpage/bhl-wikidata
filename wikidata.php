@@ -276,31 +276,147 @@ function wikidata_item_from_google_book($gb)
 }
 
 //----------------------------------------------------------------------------------------
-// Does wikidata have this DOI?
-function wikidata_item_from_doi($doi)
+function normalize_doi_key($doi)
 {
-	$item = '';
+	if (!is_string($doi))
+	{
+		return '';
+	}
 	
-	$sparql = 'SELECT * WHERE { ?work wdt:P356 "' . mb_strtoupper($doi) . '" }';
+	return mb_strtoupper(trim($doi));
+}
+
+
+//----------------------------------------------------------------------------------------
+function fetch_wikidata_items_for_dois($dois)
+{
+	$result = array();
 	
-	//echo $sparql . "\n";
+	if (count($dois) == 0)
+	{
+		return $result;
+	}
+	
+	$values = array();
+	
+	foreach ($dois as $doi)
+	{
+		$values[] = '"' . addcslashes($doi, "\\\"") . '"';
+	}
+	
+	$sparql = 'SELECT ?doi ?work WHERE {';
+	$sparql .= ' VALUES ?doi { ' . join(' ', $values) . ' }';
+	$sparql .= ' ?work wdt:P356 ?doi .';
+	$sparql .= ' }';
 	
 	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 	
-	//echo $json;
-		
 	if ($json != '')
 	{
 		$obj = json_decode($json);
 		if (isset($obj->results->bindings))
 		{
-			if (count($obj->results->bindings) != 0)	
+			foreach ($obj->results->bindings as $binding)
 			{
-				$item = $obj->results->bindings[0]->work->value;
-				$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $item);
+				if (isset($binding->doi->value) && isset($binding->work->value))
+				{
+					$key = normalize_doi_key($binding->doi->value);
+					$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $binding->work->value);
+					$result[$key] = $item;
+				}
 			}
 		}
+	}
+	
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
+// Does wikidata have these DOIs?
+function wikidata_items_from_dois($dois)
+{
+	$result = array();
+	static $cache = array();
+	
+	if (!is_array($dois))
+	{
+		return $result;
+	}
+	$pending = array();
+	
+	foreach ($dois as $doi)
+	{
+		$key = normalize_doi_key($doi);
+		
+		if ($key == '')
+		{
+			continue;
+		}
+		
+		if (array_key_exists($key, $cache))
+		{
+			$result[$key] = $cache[$key];
+		}
+		else
+		{
+			$pending[$key] = $key;
+		}
+	}
+	
+	if (count($pending) == 0)
+	{
+		return $result;
+	}
+	
+	$chunks = array_chunk(array_values($pending), 50);
+	
+	foreach ($chunks as $chunk)
+	{
+		$chunk_map = fetch_wikidata_items_for_dois($chunk);
+		
+		foreach ($chunk_map as $key => $item)
+		{
+			$cache[$key] = $item;
+			$result[$key] = $item;
+		}
+		
+		foreach ($chunk as $doi)
+		{
+			$key = normalize_doi_key($doi);
+			
+			if ($key == '')
+			{
+				continue;
+			}
+			
+			if (!array_key_exists($key, $cache))
+			{
+				$cache[$key] = '';
+			}
+			
+			if (!array_key_exists($key, $result))
+			{
+				$result[$key] = $cache[$key];
+			}
+		}
+	}
+	
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
+// Does wikidata have this DOI?
+function wikidata_item_from_doi($doi)
+{
+	$item = '';
+	
+	$map = wikidata_items_from_dois(array($doi));
+	$key = mb_strtoupper(trim((string)$doi));
+	
+	if ($key != '' && isset($map[$key]))
+	{
+		$item = $map[$key];
 	}
 	
 	return $item;
@@ -3197,9 +3313,30 @@ function update_citation_data($work, $item, $source = array())
 	$quickstatements = '';
 	
 	$w = array();
+	
+	$reference_doi_map = array();
+	
+	if (isset($work->message->reference))
+	{
+		$reference_dois = array();
+		
+		foreach ($work->message->reference as $reference)
+		{
+			if (isset($reference->DOI))
+			{
+				$reference_dois[] = $reference->DOI;
+			}
+		}
+		
+		if (count($reference_dois) > 0)
+		{
+			$reference_doi_map = wikidata_items_from_dois($reference_dois);
+		}
+	}
 		
 	foreach ($work->message as $k => $v)
-	{	
+	{
+
 		switch ($k)
 		{
 				
@@ -3207,17 +3344,32 @@ function update_citation_data($work, $item, $source = array())
 				foreach ($v as $reference)
 				{
 					
-					if (isset($reference->DOI))
+				if (isset($reference->DOI))
+				{
+					$cited = '';
+					$lookup_key = mb_strtoupper(trim($reference->DOI));
+					
+					if ($lookup_key != '' && isset($reference_doi_map[$lookup_key]))
 					{
-						// for now just see if this already exists
-						$cited = wikidata_item_from_doi($reference->DOI);
-						if ($cited != '')
-						{
-							$w[] = array('P2860' => $cited);
-						}					
+						$cited = $reference_doi_map[$lookup_key];
 					}
 					else
 					{
+						$lookup = wikidata_items_from_dois(array($reference->DOI));
+						if ($lookup_key != '' && isset($lookup[$lookup_key]))
+						{
+							$cited = $lookup[$lookup_key];
+						}
+					}
+					
+					if ($cited != '')
+					{
+						$w[] = array('P2860' => $cited);
+					}					
+				}
+				else
+				{
+
 						// lets try metadata-based search (OpenURL)
 						$parts = array();
 	
