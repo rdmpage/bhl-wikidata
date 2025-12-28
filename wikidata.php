@@ -1208,7 +1208,7 @@ function wikidata_item_from_zoobank_author($id)
 
 //----------------------------------------------------------------------------------------
 // Convert a csl json object to Wikidata quickstatments
-function csljson_to_wikidata($work, $check = true, $update = true, $languages_to_detect = array('en'), $source = array(), $always_english_label = true)
+function csljson_to_wikidata($work, $check = true, $update = true, $languages_to_detect = array('en'), $source = array())
 {
 
 	$MAX_LABEL_LENGTH = 250;
@@ -1650,9 +1650,6 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 					
 					if ($title != '')
 					{				
-						// We always want a title for the English language, even if
-						// it isn't English
-						$language = 'en';					
 						$title = nice_strip_tags($title);
 						
 						// J-Stage fixes
@@ -1672,147 +1669,127 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						
 						$title = str_replace("\n", "", $title);
 					
-						if (1)
+						// assume title is English by default
+						$language = 'en';
+						
+						$detect = true;
+						
+						if (count($languages_to_detect) == 1)
 						{
-							$language = 'en';
+							$language = $languages_to_detect[0];
+							$detect = false;
+						}							
+						
+						// Attempt to detect language, witgh some hacky fixes for obvious erroras
+						if ($detect)
+						{			
+							// Detect language of title
+							$ld = new Language($languages_to_detect);						
+							$language = $ld->detect($title)->__toString();
 							
-							$detect = true;
-							
-							if (count($languages_to_detect) == 1)
+							// double check Russian
+							// https://stackoverflow.com/a/3212339/9684
+							if (preg_match('/[А-Яа-яЁё]/u', $title))
 							{
-								$language = $languages_to_detect[0];
-								$detect = false;
-							}							
-							
-							if ($detect)
-							{			
-								// Detect language of title
-								$ld = new Language($languages_to_detect);						
-								$language = $ld->detect($title)->__toString();
-								
-								// double check Russian
-								// https://stackoverflow.com/a/3212339/9684
-								if (preg_match('/[А-Яа-яЁё]/u', $title))
-								{
-									$language = 'ru';
-								}
-																
-								// double check Chinese
-								if (preg_match('/\p{Han}+/u', $title))
-								{
-									$language = 'zh';
-									
-									// maybe Japanese?
-									if (in_array('ja', $languages_to_detect) && !in_array('zh', $languages_to_detect)) 
-									{
-										$language = 'ja';
-									}																
-								}
-								
-								// double check German
-								if (preg_match('/[ä|ö|ü]/iu', $title) && $language == 'en')
-								{
-									$language = 'de';
-								}	
+								$language = 'ru';
+							}
 															
-								// double check Hungarian
+							// double check Chinese
+							if (preg_match('/\p{Han}+/u', $title))
+							{
+								$language = 'zh';
+								
+								// maybe Japanese?
+								if (in_array('ja', $languages_to_detect) && !in_array('zh', $languages_to_detect)) 
+								{
+									$language = 'ja';
+								}																
+							}
+							
+							// double check German
+							if (preg_match('/[ä|ö|ü]/iu', $title) && $language == 'en')
+							{
+								$language = 'de';
+							}	
+														
+							// double check Hungarian
+							if (isset($work->message->ISSN))
+							{
+								if (is_array($work->message->ISSN) 
+								&& 
+								(count(array_intersect(array('0521-4726'), $work->message->ISSN)) > 0)
+								)										
+								{								
+									if (preg_match('/[á|é|ő|ú|ű]/iu', $title) && ($language == 'en' || $language == 'de'))
+									{
+										$language = 'hu';
+									}	
+								}	
+							}													
+															
+							if ($language == 'en')
+							{
 								if (isset($work->message->ISSN))
 								{
 									if (is_array($work->message->ISSN) 
 									&& 
-									(count(array_intersect(array('0521-4726'), $work->message->ISSN)) > 0)
-									)										
-									{								
-										if (preg_match('/[á|é|ő|ú|ű]/iu', $title) && ($language == 'en' || $language == 'de'))
-										{
-											$language = 'hu';
-										}	
-									}	
-								}													
-																
-								if ($language == 'en')
-								{
-									if (isset($work->message->ISSN))
-									{
-										if (is_array($work->message->ISSN) 
-										&& 
-										(count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
-										)
-										
-										{											
-											// Portuguese doesn't seem to be detected properly
-											if (preg_match('/[ç|ā|ê|á|â|ó|ô|é]/iu', $title))
-											{
-												$language = 'pt';
-											}
-
-											if (preg_match('/( o | dos |Notas | de | sobre | e | da |Sobre | um | ume )/iu', $title))
-											{
-												$language = 'pt';
-											}
-											
-										}	
-									}							
-								}								
-							}
-						
-							if ($language == 'en')
-							{
-								// Assume work is English
-								// $w[] = array('P407' => $language_map[$language]);
-
-								// title
-								$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
-
-								// label
-								$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-								
-								// Can we deduce anything about the type of article?
-								
-								types_from_title($w, $title);
-							}
-							else											
-							{
-								if (isset($work->message->ISSN))
-								{
-								
-									if (count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
-									{
-										if ($language == 'es')
+									(count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
+									)
+									
+									{											
+										// Portuguese doesn't seem to be detected properly
+										if (preg_match('/[ç|ā|ê|á|â|ó|ô|é]/iu', $title))
 										{
 											$language = 'pt';
-										}								
-									}
-								}
-															
-								// title
-								$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+										}
 
-								// label
-								$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-							
-								/*
-								switch ($language)
-								{
-									case 'la':
-										// very unlikely an article is actually in Latin
-										break;
+										if (preg_match('/( o | dos |Notas | de | sobre | e | da |Sobre | um | ume )/iu', $title))
+										{
+											$language = 'pt';
+										}
 										
-									default:
-										// language of work (assume it is the same as the title)
-										//$w[] = array('P407' => $language_map[$language]);	
-										break;								
-								}
-								*/
-							
-								// add label in English anyway
-								if ($always_english_label)
-								{
-									$w[] = array('Len' => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-								}
-							
-							}	
+									}	
+								}							
+							}								
 						}
+					
+						// Create title 
+						if ($language == 'en')
+						{
+							// title
+							$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+
+							// label
+							$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
+							
+							// Can we deduce anything about the type of article?							
+							types_from_title($w, $title);
+						}
+						else											
+						{
+							// Create title in other language, after checking for known problems
+							
+							if (isset($work->message->ISSN))
+							{
+								// Attempt to catch cases of confusing Spanish and Portuguese
+								if (count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
+								{
+									if ($language == 'es')
+									{
+										$language = 'pt';
+									}								
+								}
+							}
+														
+							// title
+							$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+
+							// label
+							$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
+						}
+						
+						// create default label for all languages
+						$w[] = array('Lmul' => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
 					}					
 			
 				}

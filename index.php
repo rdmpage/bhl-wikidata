@@ -77,8 +77,8 @@ function add_from_doi($doi, $update = false)
 	$check = true; // just to be safe
 	//$check = false; // do you feel lucky?
 	
-	$detect_languages = array('en');
-	$detect_languages = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru', 'ar', 'pa', 'hi');	
+	$languages_to_detect = array('en');
+	$languages_to_detect = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru', 'ar', 'pa', 'hi');	
 	
 	$doi = strtolower($doi);
 	
@@ -218,6 +218,9 @@ function add_from_doi($doi, $update = false)
 							
 						$source[] = 'S854';
 						$source[] = '"' . $url . '"';
+						
+						// hack
+						$languages_to_detect = ['ja', 'en', 'de', 'fr'];
 						break;
 							
 					default:
@@ -234,9 +237,8 @@ function add_from_doi($doi, $update = false)
 			$work, 
 			$check,  // check if already exists
 			$update, // true to update an existing record, false to skip an existing record
-			$detect_languages,
-			$source,
-			true // create English language label
+			$languages_to_detect,
+			$source
 			);
 			
 		$result = $q;
