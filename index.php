@@ -10,6 +10,7 @@ if (file_exists(dirname(__FILE__) . '/env.php'))
 
 require_once(dirname(__FILE__) . '/shared.php');
 require_once(dirname(__FILE__) . '/wikidata.php');
+require_once(dirname(__FILE__) . '/lib/Queue.php');
 
 //----------------------------------------------------------------------------------------
 // Get BHL part from DOI (typically an external id)
@@ -249,159 +250,256 @@ function add_from_doi($doi, $update = false)
 
 if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 {
-	// process
-	$results = array();
-	
+	// Parse identifiers and detect types
+	$items = array();
+
 	$ids = explode("\n", trim($_GET['ids']));
-	
-	//echo '<pre>';
-	//print_r($ids);
-	
+
 	foreach ($ids as $id)
 	{
 		$id = trim($id);
-	
+
+		if ($id === '') {
+			continue;
+		}
+
 		$id_type = 'unknown';
-		
-		if ($id_type == 'unknown')
+
+		// Detect identifier type
+		if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
 		{
-			if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
-			{
-				$id_type = 'doi';
-			}
+			$id_type = 'doi';
 		}
-		
-		switch ($id_type)
+
+		// Only add known identifier types
+		if ($id_type !== 'unknown')
 		{
-			case 'doi':
-				$results[$id] = add_from_doi($id);
-				break;
-				
-			default:
-				$results[$id] = null;
-				break;
+			$items[] = array(
+				'pid' => $id,
+				'pid_type' => $id_type
+			);
 		}
-		
+	}
+
+	// Create batch in queue
+	if (count($items) > 0)
+	{
+		$queue = new Queue();
+		$batch_id = $queue->createBatch($items);
+
+		// Try to spawn worker in background
+		$worker_script = dirname(__FILE__) . '/worker.php';
+		if (file_exists($worker_script)) {
+			// Attempt to spawn worker (this may fail depending on server config)
+			@exec('php ' . escapeshellarg($worker_script) . ' > /dev/null 2>&1 &');
+		}
+
+		// Redirect to progress page
+		header('Location: ?batch_id=' . urlencode($batch_id));
+		exit;
 	}
 	
-	//print_r($results);
-	
+}
+else if (isset($_GET['batch_id']))
+{
+	// Show progress page
+	$batch_id = $_GET['batch_id'];
+
 ?>
 
 <html>
 <head>
 	<meta charset="utf-8" />
-	<title>BHL Wikidata</title>
+	<title>BHL Wikidata - Processing</title>
 	<style>
 		body {
 			font-family:sans-serif;
 			padding:40px;
 			color:#424242;
 		}
-		
-	button {
-		font-size:1em;
-		background-color:blue;
-		color:white;
-		border:1px solid white;
-		padding:1em;
-		border-radius:4px;
-	}
-	
-	a {
-		text-decoration:none;
-		color:rgb(28,27,168);
-	}			
-			
-	</style>	
+
+		button {
+			font-size:1em;
+			background-color:blue;
+			color:white;
+			border:1px solid white;
+			padding:1em;
+			border-radius:4px;
+		}
+
+		a {
+			text-decoration:none;
+			color:rgb(28,27,168);
+		}
+
+		.progress-bar {
+			width:100%;
+			height:30px;
+			background-color:#f0f0f0;
+			border-radius:4px;
+			overflow:hidden;
+			margin:20px 0;
+		}
+
+		.progress-fill {
+			height:100%;
+			background-color:#4CAF50;
+			transition: width 0.3s ease;
+			display:flex;
+			align-items:center;
+			justify-content:center;
+			color:white;
+			font-weight:bold;
+		}
+
+		.status-text {
+			margin:10px 0;
+			font-size:1.1em;
+		}
+
+		#results-section {
+			display:none;
+		}
+
+		table {
+			border-collapse: collapse;
+			width:100%;
+			margin:20px 0;
+		}
+
+		table th, table td {
+			border:1px solid #ddd;
+			padding:8px;
+			text-align:left;
+		}
+
+		table th {
+			background-color:#f0f0f0;
+		}
+	</style>
 </head>
 <body>
 <h1>
 	<a href=".">[Home]</a>
 </h1>
 
-<p>You can create a new item in QuickStatements:</p>
+<h2>Processing Identifiers</h2>
 
+<div class="status-text" id="status-text">Initializing...</div>
 
-<form action='https://tools.wmflabs.org/quickstatements/api.php' method='post' target='_blank'>
-<input type='hidden' name='action' value='import' />
-<input type='hidden' name='format' value='v1' />
-<input type='hidden' name='temporary' value='1' />
-<input type='hidden' name='openpage' value='1' />
-<textarea style="padding:1em;font-size:1em;box-sizing: border-box;width:100%;" name="data" rows="20" >
-<?php
+<div class="progress-bar">
+	<div class="progress-fill" id="progress-fill" style="width:0%">0%</div>
+</div>
 
-$have_already = array();
-$bad_identifier = array();
+<div id="results-section">
+	<h3>Results</h3>
 
-foreach ($results as $id => $result)
-{
-	if ($result)
-	{
-		if (preg_match('/^CREATE/', $result))
-		{
-			echo $result . "\n";
-		}
-		else
-		{
-			$have_already[$id] = $result;
-		}
-	}
-	else
-	{
-		$bad_identifier[] = $id;
-	}
+	<div id="quickstatements-section" style="display:none;">
+		<p>You can create new items in QuickStatements:</p>
+		<form action='https://tools.wmflabs.org/quickstatements/api.php' method='post' target='_blank' id="qs-form">
+			<input type='hidden' name='action' value='import' />
+			<input type='hidden' name='format' value='v1' />
+			<input type='hidden' name='temporary' value='1' />
+			<input type='hidden' name='openpage' value='1' />
+			<textarea style="padding:1em;font-size:1em;box-sizing:border-box;width:100%;" name="data" rows="20" id="qs-data"></textarea>
+			<br />
+			<button type="submit">Open in Quickstatements</button>
+		</form>
+	</div>
+
+	<div id="existing-section" style="display:none;">
+		<h3>Already in Wikidata</h3>
+		<div id="existing-list"></div>
+	</div>
+
+	<div id="errors-section" style="display:none;">
+		<h3>Errors</h3>
+		<div id="errors-list"></div>
+	</div>
+</div>
+
+<script>
+const batchId = <?php echo json_encode($batch_id); ?>;
+let pollInterval = null;
+
+function updateProgress() {
+	fetch('status.php?batch_id=' + encodeURIComponent(batchId))
+		.then(response => response.json())
+		.then(data => {
+			if (data.error) {
+				document.getElementById('status-text').textContent = 'Error: ' + data.error;
+				if (pollInterval) {
+					clearInterval(pollInterval);
+				}
+				return;
+			}
+
+			// Update progress bar
+			const percent = data.progress_percent;
+			document.getElementById('progress-fill').style.width = percent + '%';
+			document.getElementById('progress-fill').textContent = percent + '%';
+
+			// Update status text
+			const statusText = `Processing: ${data.completed + data.failed} of ${data.total} complete ` +
+				`(${data.pending} pending, ${data.processing} processing)`;
+			document.getElementById('status-text').textContent = statusText;
+
+			// If complete, show results
+			if (data.is_complete) {
+				if (pollInterval) {
+					clearInterval(pollInterval);
+				}
+
+				document.getElementById('status-text').textContent = 'Processing complete!';
+				document.getElementById('results-section').style.display = 'block';
+
+				// Show quickstatements if we have results
+				if (data.results.length > 0) {
+					let qsText = '';
+					data.results.forEach(r => {
+						qsText += r.result + '\n';
+					});
+					document.getElementById('qs-data').value = qsText;
+					document.getElementById('quickstatements-section').style.display = 'block';
+				}
+
+				// Show existing items
+				if (data.existing_items.length > 0) {
+					let html = '<ul>';
+					data.existing_items.forEach(item => {
+						html += '<li>' + item.pid + ' (already exists)</li>';
+					});
+					html += '</ul>';
+					document.getElementById('existing-list').innerHTML = html;
+					document.getElementById('existing-section').style.display = 'block';
+				}
+
+				// Show errors
+				if (data.errors.length > 0) {
+					let html = '<ul>';
+					data.errors.forEach(item => {
+						html += '<li>' + item.pid + ': ' + item.error + '</li>';
+					});
+					html += '</ul>';
+					document.getElementById('errors-list').innerHTML = html;
+					document.getElementById('errors-section').style.display = 'block';
+				}
+			}
+		})
+		.catch(err => {
+			console.error('Error polling status:', err);
+		});
 }
 
-?>
-</textarea>
-    <br />
-    <button type="submit">Open in Quickstatements</button>
-</form>
-
-<?php
-
-	if (count($have_already) > 0)
-	{
-		echo '<h2>' . count($have_already) . ' DOI(s) already exist in Wikidata</h2>';
-		
-		echo '<table>';
-		echo '<tr><th>DOI</th><th>Wikidata item</th></tr>';
-		foreach ($have_already as $id => $qid)
-		{
-			echo '<tr>';
-			echo '<td>' . $id . '</td>';
-			echo '<td>' . '<a href="https://www.wikidata.org/wiki/' . $qid . '" target="_blank">' . $qid . '</a>' . '</td>';
-			echo '</tr>';				
-		}
-		echo '</table>';
-		
-	
-	}
-	
-	if (count($bad_identifier) > 0)
-	{
-		echo '<h2>Bad identifier(s)</h2>';
-		echo '<ul>';
-		foreach ($bad_identifier as $id)
-		{
-			echo '<li>' . $id . '</li>';
-		}
-		echo '</ul>';
-	}
-	
-
-
-?>
-
+// Start polling every 2 seconds
+updateProgress();
+pollInterval = setInterval(updateProgress, 2000);
+</script>
 
 </body>
 </html>
 
-
-
-<?php	
-
+<?php
 }
 else
 {

@@ -6,6 +6,18 @@ require_once 'vendor/autoload.php';
 use LanguageDetection\Language;
 use Biblys\Isbn\Isbn as Isbn;
 
+// Initialize cache if available
+$GLOBALS['wikidata_cache'] = null;
+if (file_exists(dirname(__FILE__) . '/lib/Cache.php')) {
+	require_once dirname(__FILE__) . '/lib/Cache.php';
+	try {
+		$GLOBALS['wikidata_cache'] = new Cache();
+	} catch (Exception $e) {
+		// Cache unavailable, continue without it
+		error_log("Cache initialization failed: " . $e->getMessage());
+	}
+}
+
 //----------------------------------------------------------------------------------------
 // Convert CSL author name to a simple string
 function csl_author_to_name($author)
@@ -105,35 +117,66 @@ function nice_shorten($str, $length = 250) {
 
 //----------------------------------------------------------------------------------------
 function get($url, $user_agent='', $content_type = '')
-{	
+{
 	$data = null;
 
 	$opts = array(
 	  CURLOPT_URL =>$url,
 	  CURLOPT_FOLLOWLOCATION => TRUE,
 	  CURLOPT_RETURNTRANSFER => TRUE,
-	  
+
 		CURLOPT_SSL_VERIFYHOST=> FALSE,
 		CURLOPT_SSL_VERIFYPEER=> FALSE,
-	  
+
 	);
 
 	if ($content_type != '')
 	{
-		
+
 		$opts[CURLOPT_HTTPHEADER] = array(
-			"Accept: " . $content_type, 
-			"User-agent: Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405" 
+			"Accept: " . $content_type,
+			"User-agent: Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405"
 		);
-		
+
 	}
-	
+
 	$ch = curl_init();
 	curl_setopt_array($ch, $opts);
 	$data = curl_exec($ch);
-	$info = curl_getinfo($ch); 
+	$info = curl_getinfo($ch);
 	curl_close($ch);
-	
+
+	return $data;
+}
+
+//----------------------------------------------------------------------------------------
+// Cached version of get() for SPARQL queries
+function get_cached($url, $ttl = 86400)
+{
+	$cache = $GLOBALS['wikidata_cache'];
+
+	// If cache is not available, just fetch directly
+	if ($cache === null) {
+		return get($url, '', 'application/json');
+	}
+
+	// Use URL as cache key (md5 to keep it reasonable length)
+	$cache_key = 'sparql_' . md5($url);
+
+	// Try to get from cache
+	$cached = $cache->get($cache_key);
+	if ($cached !== null) {
+		return $cached;
+	}
+
+	// Not in cache, fetch it
+	$data = get($url, '', 'application/json');
+
+	// Store in cache if successful
+	if ($data && $data != '') {
+		$cache->set($cache_key, $data, $ttl);
+	}
+
 	return $data;
 }
 
@@ -276,31 +319,147 @@ function wikidata_item_from_google_book($gb)
 }
 
 //----------------------------------------------------------------------------------------
-// Does wikidata have this DOI?
-function wikidata_item_from_doi($doi)
+function normalize_doi_key($doi)
 {
-	$item = '';
+	if (!is_string($doi))
+	{
+		return '';
+	}
 	
-	$sparql = 'SELECT * WHERE { ?work wdt:P356 "' . mb_strtoupper($doi) . '" }';
+	return mb_strtoupper(trim($doi));
+}
+
+
+//----------------------------------------------------------------------------------------
+function fetch_wikidata_items_for_dois($dois)
+{
+	$result = array();
 	
-	//echo $sparql . "\n";
+	if (count($dois) == 0)
+	{
+		return $result;
+	}
 	
+	$values = array();
+	
+	foreach ($dois as $doi)
+	{
+		$values[] = '"' . addcslashes($doi, "\\\"") . '"';
+	}
+	
+	$sparql = 'SELECT ?doi ?work WHERE {';
+	$sparql .= ' VALUES ?doi { ' . join(' ', $values) . ' }';
+	$sparql .= ' ?work wdt:P356 ?doi .';
+	$sparql .= ' }';
+
 	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-	$json = get($url, '', 'application/json');
+	$json = get_cached($url);
 	
-	//echo $json;
-		
 	if ($json != '')
 	{
 		$obj = json_decode($json);
 		if (isset($obj->results->bindings))
 		{
-			if (count($obj->results->bindings) != 0)	
+			foreach ($obj->results->bindings as $binding)
 			{
-				$item = $obj->results->bindings[0]->work->value;
-				$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $item);
+				if (isset($binding->doi->value) && isset($binding->work->value))
+				{
+					$key = normalize_doi_key($binding->doi->value);
+					$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $binding->work->value);
+					$result[$key] = $item;
+				}
 			}
 		}
+	}
+	
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
+// Does wikidata have these DOIs?
+function wikidata_items_from_dois($dois)
+{
+	$result = array();
+	static $cache = array();
+	
+	if (!is_array($dois))
+	{
+		return $result;
+	}
+	$pending = array();
+	
+	foreach ($dois as $doi)
+	{
+		$key = normalize_doi_key($doi);
+		
+		if ($key == '')
+		{
+			continue;
+		}
+		
+		if (array_key_exists($key, $cache))
+		{
+			$result[$key] = $cache[$key];
+		}
+		else
+		{
+			$pending[$key] = $key;
+		}
+	}
+	
+	if (count($pending) == 0)
+	{
+		return $result;
+	}
+	
+	$chunks = array_chunk(array_values($pending), 50);
+	
+	foreach ($chunks as $chunk)
+	{
+		$chunk_map = fetch_wikidata_items_for_dois($chunk);
+		
+		foreach ($chunk_map as $key => $item)
+		{
+			$cache[$key] = $item;
+			$result[$key] = $item;
+		}
+		
+		foreach ($chunk as $doi)
+		{
+			$key = normalize_doi_key($doi);
+			
+			if ($key == '')
+			{
+				continue;
+			}
+			
+			if (!array_key_exists($key, $cache))
+			{
+				$cache[$key] = '';
+			}
+			
+			if (!array_key_exists($key, $result))
+			{
+				$result[$key] = $cache[$key];
+			}
+		}
+	}
+	
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
+// Does wikidata have this DOI?
+function wikidata_item_from_doi($doi)
+{
+	$item = '';
+	
+	$map = wikidata_items_from_dois(array($doi));
+	$key = mb_strtoupper(trim((string)$doi));
+	
+	if ($key != '' && isset($map[$key]))
+	{
+		$item = $map[$key];
 	}
 	
 	return $item;
@@ -1092,7 +1251,7 @@ function wikidata_item_from_zoobank_author($id)
 
 //----------------------------------------------------------------------------------------
 // Convert a csl json object to Wikidata quickstatments
-function csljson_to_wikidata($work, $check = true, $update = true, $languages_to_detect = array('en'), $source = array(), $always_english_label = true)
+function csljson_to_wikidata($work, $check = true, $update = true, $languages_to_detect = array('en'), $source = array())
 {
 
 	$MAX_LABEL_LENGTH = 250;
@@ -1534,9 +1693,6 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 					
 					if ($title != '')
 					{				
-						// We always want a title for the English language, even if
-						// it isn't English
-						$language = 'en';					
 						$title = nice_strip_tags($title);
 						
 						// J-Stage fixes
@@ -1556,147 +1712,127 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 						
 						$title = str_replace("\n", "", $title);
 					
-						if (1)
+						// assume title is English by default
+						$language = 'en';
+						
+						$detect = true;
+						
+						if (count($languages_to_detect) == 1)
 						{
-							$language = 'en';
+							$language = $languages_to_detect[0];
+							$detect = false;
+						}							
+						
+						// Attempt to detect language, witgh some hacky fixes for obvious erroras
+						if ($detect)
+						{			
+							// Detect language of title
+							$ld = new Language($languages_to_detect);						
+							$language = $ld->detect($title)->__toString();
 							
-							$detect = true;
-							
-							if (count($languages_to_detect) == 1)
+							// double check Russian
+							// https://stackoverflow.com/a/3212339/9684
+							if (preg_match('/[А-Яа-яЁё]/u', $title))
 							{
-								$language = $languages_to_detect[0];
-								$detect = false;
-							}							
-							
-							if ($detect)
-							{			
-								// Detect language of title
-								$ld = new Language($languages_to_detect);						
-								$language = $ld->detect($title)->__toString();
-								
-								// double check Russian
-								// https://stackoverflow.com/a/3212339/9684
-								if (preg_match('/[А-Яа-яЁё]/u', $title))
-								{
-									$language = 'ru';
-								}
-																
-								// double check Chinese
-								if (preg_match('/\p{Han}+/u', $title))
-								{
-									$language = 'zh';
-									
-									// maybe Japanese?
-									if (in_array('ja', $languages_to_detect) && !in_array('zh', $languages_to_detect)) 
-									{
-										$language = 'ja';
-									}																
-								}
-								
-								// double check German
-								if (preg_match('/[ä|ö|ü]/iu', $title) && $language == 'en')
-								{
-									$language = 'de';
-								}	
+								$language = 'ru';
+							}
 															
-								// double check Hungarian
+							// double check Chinese
+							if (preg_match('/\p{Han}+/u', $title))
+							{
+								$language = 'zh';
+								
+								// maybe Japanese?
+								if (in_array('ja', $languages_to_detect) && !in_array('zh', $languages_to_detect)) 
+								{
+									$language = 'ja';
+								}																
+							}
+							
+							// double check German
+							if (preg_match('/[ä|ö|ü]/iu', $title) && $language == 'en')
+							{
+								$language = 'de';
+							}	
+														
+							// double check Hungarian
+							if (isset($work->message->ISSN))
+							{
+								if (is_array($work->message->ISSN) 
+								&& 
+								(count(array_intersect(array('0521-4726'), $work->message->ISSN)) > 0)
+								)										
+								{								
+									if (preg_match('/[á|é|ő|ú|ű]/iu', $title) && ($language == 'en' || $language == 'de'))
+									{
+										$language = 'hu';
+									}	
+								}	
+							}													
+															
+							if ($language == 'en')
+							{
 								if (isset($work->message->ISSN))
 								{
 									if (is_array($work->message->ISSN) 
 									&& 
-									(count(array_intersect(array('0521-4726'), $work->message->ISSN)) > 0)
-									)										
-									{								
-										if (preg_match('/[á|é|ő|ú|ű]/iu', $title) && ($language == 'en' || $language == 'de'))
-										{
-											$language = 'hu';
-										}	
-									}	
-								}													
-																
-								if ($language == 'en')
-								{
-									if (isset($work->message->ISSN))
-									{
-										if (is_array($work->message->ISSN) 
-										&& 
-										(count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
-										)
-										
-										{											
-											// Portuguese doesn't seem to be detected properly
-											if (preg_match('/[ç|ā|ê|á|â|ó|ô|é]/iu', $title))
-											{
-												$language = 'pt';
-											}
-
-											if (preg_match('/( o | dos |Notas | de | sobre | e | da |Sobre | um | ume )/iu', $title))
-											{
-												$language = 'pt';
-											}
-											
-										}	
-									}							
-								}								
-							}
-						
-							if ($language == 'en')
-							{
-								// Assume work is English
-								// $w[] = array('P407' => $language_map[$language]);
-
-								// title
-								$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
-
-								// label
-								$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-								
-								// Can we deduce anything about the type of article?
-								
-								types_from_title($w, $title);
-							}
-							else											
-							{
-								if (isset($work->message->ISSN))
-								{
-								
-									if (count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
-									{
-										if ($language == 'es')
+									(count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
+									)
+									
+									{											
+										// Portuguese doesn't seem to be detected properly
+										if (preg_match('/[ç|ā|ê|á|â|ó|ô|é]/iu', $title))
 										{
 											$language = 'pt';
-										}								
-									}
-								}
-															
-								// title
-								$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+										}
 
-								// label
-								$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-							
-								/*
-								switch ($language)
-								{
-									case 'la':
-										// very unlikely an article is actually in Latin
-										break;
+										if (preg_match('/( o | dos |Notas | de | sobre | e | da |Sobre | um | ume )/iu', $title))
+										{
+											$language = 'pt';
+										}
 										
-									default:
-										// language of work (assume it is the same as the title)
-										//$w[] = array('P407' => $language_map[$language]);	
-										break;								
-								}
-								*/
-							
-								// add label in English anyway
-								if ($always_english_label)
-								{
-									$w[] = array('Len' => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
-								}
-							
-							}	
+									}	
+								}							
+							}								
 						}
+					
+						// Create title 
+						if ($language == 'en')
+						{
+							// title
+							$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+
+							// label
+							$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
+							
+							// Can we deduce anything about the type of article?							
+							types_from_title($w, $title);
+						}
+						else											
+						{
+							// Create title in other language, after checking for known problems
+							
+							if (isset($work->message->ISSN))
+							{
+								// Attempt to catch cases of confusing Spanish and Portuguese
+								if (count(array_intersect($pt_issn, $work->message->ISSN)) > 0)
+								{
+									if ($language == 'es')
+									{
+										$language = 'pt';
+									}								
+								}
+							}
+														
+							// title
+							$w[] = array($wikidata_properties[$k] => $language . ':' . '"' . $title . '"');
+
+							// label
+							$w[] = array('L' . $language => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
+						}
+						
+						// create default label for all languages
+						$w[] = array('Lmul' => '"' . nice_shorten($title, $MAX_LABEL_LENGTH) . '"');
 					}					
 			
 				}
@@ -3197,9 +3333,30 @@ function update_citation_data($work, $item, $source = array())
 	$quickstatements = '';
 	
 	$w = array();
+	
+	$reference_doi_map = array();
+	
+	if (isset($work->message->reference))
+	{
+		$reference_dois = array();
+		
+		foreach ($work->message->reference as $reference)
+		{
+			if (isset($reference->DOI))
+			{
+				$reference_dois[] = $reference->DOI;
+			}
+		}
+		
+		if (count($reference_dois) > 0)
+		{
+			$reference_doi_map = wikidata_items_from_dois($reference_dois);
+		}
+	}
 		
 	foreach ($work->message as $k => $v)
-	{	
+	{
+
 		switch ($k)
 		{
 				
@@ -3207,17 +3364,32 @@ function update_citation_data($work, $item, $source = array())
 				foreach ($v as $reference)
 				{
 					
-					if (isset($reference->DOI))
+				if (isset($reference->DOI))
+				{
+					$cited = '';
+					$lookup_key = mb_strtoupper(trim($reference->DOI));
+					
+					if ($lookup_key != '' && isset($reference_doi_map[$lookup_key]))
 					{
-						// for now just see if this already exists
-						$cited = wikidata_item_from_doi($reference->DOI);
-						if ($cited != '')
-						{
-							$w[] = array('P2860' => $cited);
-						}					
+						$cited = $reference_doi_map[$lookup_key];
 					}
 					else
 					{
+						$lookup = wikidata_items_from_dois(array($reference->DOI));
+						if ($lookup_key != '' && isset($lookup[$lookup_key]))
+						{
+							$cited = $lookup[$lookup_key];
+						}
+					}
+					
+					if ($cited != '')
+					{
+						$w[] = array('P2860' => $cited);
+					}					
+				}
+				else
+				{
+
 						// lets try metadata-based search (OpenURL)
 						$parts = array();
 	
