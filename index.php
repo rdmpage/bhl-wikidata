@@ -68,15 +68,23 @@ function get_part_from_bhl_part($id)
 }
 
 //----------------------------------------------------------------------------------------
-function add_from_doi($doi, $update = false)
+// $force = true processes the DOI as if it were not yet in Wikidata. Used for debugging
+// timeouts on DOIs that have since been added by hand (see issue #21).
+function add_from_doi($doi, $update = false, $force = false)
 {
 	$result = null;
-	
+
 	$source = array();
-	
+
 	$check = true; // just to be safe
 	//$check = false; // do you feel lucky?
-	
+
+	if ($force)
+	{
+		// don't short circuit on the existing item, we want to see the full workload
+		$check = false;
+	}
+
 	$languages_to_detect = array('en');
 	$languages_to_detect = array('en', 'fr', 'de', 'pt', 'es', 'ja', 'zh', 'ru', 'ar', 'pa', 'hi');	
 	
@@ -84,17 +92,17 @@ function add_from_doi($doi, $update = false)
 	
 	$go = true;
 	
-	$item = wikidata_item_from_doi($doi);
-	
+	$item = $force ? '' : wikidata_item_from_doi($doi);
+
 	if ($item != '')
 	{
 		if (!$update)
 		{
 			$go = false;
-			$result = $item;			
+			$result = $item;
 		}
 	}
-	
+
 	if ($go)
 	{
 		$work = get_work($doi);
@@ -255,7 +263,11 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	$results = array();
 	
 	$ids = explode("\n", trim($_GET['ids']));
-	
+
+	// Debugging: &force=1 ignores the "already in Wikidata" test so we can reproduce
+	// the full workload for a DOI that has since been created by hand (issue #21).
+	$force = isset($_GET['force']) && $_GET['force'] != '';
+
 	//echo '<pre>';
 	//print_r($ids);
 	
@@ -276,7 +288,7 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 		switch ($id_type)
 		{
 			case 'doi':
-				$results[$id] = add_from_doi($id);
+				$results[$id] = add_from_doi($id, false, $force);
 				break;
 				
 			default:

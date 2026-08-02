@@ -104,9 +104,33 @@ function nice_shorten($str, $length = 250) {
 
 
 //----------------------------------------------------------------------------------------
+// Debugging: record every external call made by get(). Off unless BHL_WIKIDATA_PROFILE is set.
+// Call get_profile() to retrieve the log.
+function profiling_enabled()
+{
+	return getenv('BHL_WIKIDATA_PROFILE') ? true : false;
+}
+
+//----------------------------------------------------------------------------------------
+function get_profile(&$log = null)
+{
+	static $calls = array();
+
+	if ($log !== null)
+	{
+		$calls[] = $log;
+	}
+
+	return $calls;
+}
+
+//----------------------------------------------------------------------------------------
 function get($url, $user_agent='', $content_type = '')
-{	
+{
 	$data = null;
+
+	$profile = profiling_enabled();
+	$start = $profile ? microtime(true) : 0;
 
 	$opts = array(
 	  CURLOPT_URL =>$url,
@@ -131,9 +155,21 @@ function get($url, $user_agent='', $content_type = '')
 	$ch = curl_init();
 	curl_setopt_array($ch, $opts);
 	$data = curl_exec($ch);
-	$info = curl_getinfo($ch); 
+	$info = curl_getinfo($ch);
 	curl_close($ch);
-	
+
+	if ($profile)
+	{
+		$entry = array(
+			'url'      => $url,
+			'seconds'  => microtime(true) - $start,
+			'http'     => isset($info['http_code']) ? $info['http_code'] : 0,
+			'bytes'    => is_string($data) ? strlen($data) : 0,
+		);
+
+		get_profile($entry);
+	}
+
 	return $data;
 }
 
@@ -1018,33 +1054,128 @@ function wikidata_item_from_journal_name($name, $language = 'en')
 }
 
 //----------------------------------------------------------------------------------------
+function normalize_orcid($orcid)
+{
+	if (!is_string($orcid))
+	{
+		return '';
+	}
+
+	return mb_strtoupper(trim(preg_replace('/https?:\/\/orcid\.org\//', '', $orcid)));
+}
+
+//----------------------------------------------------------------------------------------
+// Look up a batch of ORCIDs in one SPARQL query. A paper with 40 authors was making 40
+// separate round trips to WDQS, which is what caused the timeouts in issue #21.
+function wikidata_items_from_orcids($orcids)
+{
+	$result = array();
+	static $cache = array();
+
+	if (!is_array($orcids))
+	{
+		return $result;
+	}
+
+	$pending = array();
+
+	foreach ($orcids as $orcid)
+	{
+		$key = normalize_orcid($orcid);
+
+		if ($key == '')
+		{
+			continue;
+		}
+
+		if (array_key_exists($key, $cache))
+		{
+			$result[$key] = $cache[$key];
+		}
+		else
+		{
+			$pending[$key] = $key;
+		}
+	}
+
+	if (count($pending) == 0)
+	{
+		return $result;
+	}
+
+	$chunks = array_chunk(array_values($pending), 50);
+
+	foreach ($chunks as $chunk)
+	{
+		$values = array();
+
+		foreach ($chunk as $orcid)
+		{
+			$values[] = '"' . addcslashes($orcid, "\\\"") . '"';
+		}
+
+		$sparql = 'SELECT ?orcid ?author WHERE {';
+		$sparql .= ' VALUES ?orcid { ' . join(' ', $values) . ' }';
+		$sparql .= ' ?author wdt:P496 ?orcid .';
+		$sparql .= ' }';
+
+		$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+		$json = get($url, '', 'application/json');
+
+		// An ORCID matching more than one item is ambiguous, so track how many we saw
+		$seen = array();
+
+		if ($json != '')
+		{
+			$obj = json_decode($json);
+
+			if (isset($obj->results->bindings))
+			{
+				foreach ($obj->results->bindings as $binding)
+				{
+					if (isset($binding->orcid->value) && isset($binding->author->value))
+					{
+						$key = normalize_orcid($binding->orcid->value);
+						$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $binding->author->value);
+
+						$seen[$key] = isset($seen[$key]) ? $seen[$key] + 1 : 1;
+
+						// only accept an unambiguous match, as the unbatched code did
+						$cache[$key] = ($seen[$key] == 1) ? $item : '';
+					}
+				}
+			}
+		}
+
+		foreach ($chunk as $orcid)
+		{
+			$key = normalize_orcid($orcid);
+
+			if (!array_key_exists($key, $cache))
+			{
+				$cache[$key] = '';
+			}
+
+			$result[$key] = $cache[$key];
+		}
+	}
+
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
 function wikidata_item_from_orcid($orcid)
 {
 	$item = '';
-	
-	$sparql = 'SELECT * WHERE { ?author wdt:P496 "' . $orcid . '" }';
-	
-	//echo $sparql . "\n";
-	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-	$json = get($url, '', 'application/json');
-	
-	if ($json != '')
+
+	$map = wikidata_items_from_orcids(array($orcid));
+	$key = normalize_orcid($orcid);
+
+	if ($key != '' && isset($map[$key]))
 	{
-		$obj = json_decode($json);
-		
-		//print_r($obj);
-		
-		if (isset($obj->results->bindings))
-		{
-			if (count($obj->results->bindings) == 1)	
-			{
-				$item = $obj->results->bindings[0]->author->value;
-				$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $item);
-			}
-		}
+		$item = $map[$key];
 	}
-	
+
 	return $item;
 }
 
@@ -1851,6 +1982,24 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				// For now just use author names, but will want to do lookup to see if there is an item for each person
 				// in which case we would only add the item, not the name (can have one or the other)
 				// Note that we can't seem to add language codes to author names, they are just dumb strings
+
+				// Resolve every ORCID up front in one query so the per-author lookup below
+				// is served from cache (issue #21)
+				$orcids = array();
+
+				foreach ($work->message->author as $author)
+				{
+					if (isset($author->ORCID))
+					{
+						$orcids[] = $author->ORCID;
+					}
+				}
+
+				if (count($orcids) > 0)
+				{
+					wikidata_items_from_orcids($orcids);
+				}
+
 				$count = 1;
 				foreach ($work->message->author as $author)
 				{					
@@ -2705,19 +2854,38 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				
 			//----------------------------------------------------------------------------
 			case 'reference':
+				// Resolve all the cited DOIs in one batch rather than one query per
+				// reference, which is what update_citation_data() already does (issue #21)
+				$reference_dois = array();
+
 				foreach ($v as $reference)
 				{
-					
+					if (isset($reference->DOI))
+					{
+						$reference_dois[] = $reference->DOI;
+					}
+				}
+
+				$reference_doi_map = array();
+
+				if (count($reference_dois) > 0)
+				{
+					$reference_doi_map = wikidata_items_from_dois($reference_dois);
+				}
+
+				foreach ($v as $reference)
+				{
 					if (isset($reference->DOI))
 					{
 						// for now just see if this already exists
-						$cited = wikidata_item_from_doi($reference->DOI);
+						$lookup_key = normalize_doi_key($reference->DOI);
+						$cited = isset($reference_doi_map[$lookup_key]) ? $reference_doi_map[$lookup_key] : '';
+
 						if ($cited != '')
 						{
 							$w[] = array('P2860' => $cited);
-						}					
+						}
 					}
-					
 				}
 				break;
 				
