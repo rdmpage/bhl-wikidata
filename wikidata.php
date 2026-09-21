@@ -3,6 +3,7 @@
 error_reporting(E_ALL);
 
 require_once 'vendor/autoload.php';
+require_once(dirname(__FILE__) . '/bhl.php');
 use LanguageDetection\Language;
 use Biblys\Isbn\Isbn as Isbn;
 
@@ -125,12 +126,22 @@ function get_profile(&$log = null)
 }
 
 //----------------------------------------------------------------------------------------
-function get($url, $user_agent='', $content_type = '')
+// $timeout caps how long a single request may take, in seconds. Without a cap one slow
+// reply (the Wikidata query service is erratic, and has taken 40s for a query that usually
+// takes under a second) can eat the whole PHP execution limit and kill the request. With
+// one we simply get no answer for that lookup and carry on, e.g. falling back to an author
+// name string instead of an author item. Override with BHL_WIKIDATA_TIMEOUT.
+function get($url, $user_agent='', $content_type = '', $timeout = 0)
 {
 	$data = null;
 
 	$profile = profiling_enabled();
 	$start = $profile ? microtime(true) : 0;
+
+	if ($timeout <= 0)
+	{
+		$timeout = getenv('BHL_WIKIDATA_TIMEOUT') ? (int)getenv('BHL_WIKIDATA_TIMEOUT') : 15;
+	}
 
 	$opts = array(
 	  CURLOPT_URL =>$url,
@@ -140,18 +151,27 @@ function get($url, $user_agent='', $content_type = '')
 		CURLOPT_SSL_VERIFYHOST=> FALSE,
 		CURLOPT_SSL_VERIFYPEER=> FALSE,
 	  
+		CURLOPT_TIMEOUT => $timeout,
+		CURLOPT_CONNECTTIMEOUT => min(10, $timeout),
+	  
 	);
+
+	// The Wikidata query service throttles requests that don't identify themselves, so
+	// always send a descriptive user agent (see meta.wikimedia.org/wiki/User-Agent_policy)
+	if ($user_agent == '')
+	{
+		$user_agent = 'bhl-wikidata/1.0 (https://github.com/rdmpage/bhl-wikidata; rdmpage@gmail.com)';
+	}
+
+	$headers = array('User-agent: ' . $user_agent);
 
 	if ($content_type != '')
 	{
-		
-		$opts[CURLOPT_HTTPHEADER] = array(
-			"Accept: " . $content_type, 
-			"User-agent: Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405" 
-		);
-		
+		$headers[] = 'Accept: ' . $content_type;
 	}
-	
+
+	$opts[CURLOPT_HTTPHEADER] = $headers;
+
 	$ch = curl_init();
 	curl_setopt_array($ch, $opts);
 	$data = curl_exec($ch);
@@ -165,6 +185,7 @@ function get($url, $user_agent='', $content_type = '')
 			'seconds'  => microtime(true) - $start,
 			'http'     => isset($info['http_code']) ? $info['http_code'] : 0,
 			'bytes'    => is_string($data) ? strlen($data) : 0,
+			'timedout' => ($data === false) ? 1 : 0,
 		);
 
 		get_profile($entry);
@@ -189,36 +210,33 @@ function wikidata_from_bhl_item($ItemID)
 	
 	if ($item == '')
 	{
-		// BHL API
-		$config['api_key'] = '0d4f0303-712e-49e0-92c5-2113a5959159';
-		
-		$parameters = array(
-			'op' 		=> 'GetItemMetadata',
-			'itemid'	=> $ItemID,
-			'pages'		=> 'f',
-			'ocr'		=> 'f',
-			'parts'		=> 'f',
-			'apikey'	=> $config['api_key'],
-			'format'	=> 'json'
-		);
-	
-		$url = 'https://www.biodiversitylibrary.org/api2/httpquery.ashx?' . http_build_query($parameters);
-	
-		//echo $url . "\n";
-	
-		$json = get($url);
-	
-		$obj = json_decode($json);
-				
-		//print_r($obj);
-		
-		// assume title has DOI
-		if (isset($obj->Result->PrimaryTitleID))
+		$metadata = bhl_item_metadata($ItemID);
+
+		if ($metadata && isset($metadata->PrimaryTitleID))
 		{
-			$doi = '10.5962/BHL.TITLE.' . $obj->Result->PrimaryTitleID;
-			$item = wikidata_item_from_doi($doi);
+			// BHL title records often name the Wikidata item for the journal outright
+			$title = bhl_title_metadata($metadata->PrimaryTitleID);
+
+			if ($title && isset($title->Identifiers))
+			{
+				foreach ($title->Identifiers as $identifier)
+				{
+					if ($identifier->IdentifierName == 'Wikidata'
+						&& preg_match('/^Q\d+$/', $identifier->IdentifierValue))
+					{
+						$item = $identifier->IdentifierValue;
+						break;
+					}
+				}
+			}
+
+			// otherwise assume the title has a DOI
+			if ($item == '')
+			{
+				$doi = '10.5962/BHL.TITLE.' . $metadata->PrimaryTitleID;
+				$item = wikidata_item_from_doi($doi);
+			}
 		}
-	
 	}
 
 	
@@ -870,11 +888,19 @@ function wikidata_item_from_issn($issn)
 		'0007-2745' => 'Q7720447', // The Bryologist
 	);
 
+	// Resolving an ISSN hits the main query endpoint and is often slow, so remember
+	// what we've already looked up this run
+	static $seen = array();
+
 	$item = '';
 	
 	if (isset($cached_issn[$issn]))
 	{
 		$item = $cached_issn[$issn];
+	}
+	else if (isset($seen[$issn]))
+	{
+		$item = $seen[$issn];
 	}
 	else
 	{
@@ -898,6 +924,8 @@ function wikidata_item_from_issn($issn)
 		}
 	}
 		
+	$seen[$issn] = $item;
+	
 	return $item;
 }
 
@@ -1275,33 +1303,203 @@ function wikidata_item_from_wikispecies_author($wikispecies)
 }
 
 //----------------------------------------------------------------------------------------
-function wikidata_item_from_bhl_creator($id)
+// Resolve a set of BHL creator ids to Wikidata items in one query.
+//
+// Parts routinely have several authors, and looking each one up on its own is slow enough
+// to time the tool out, so batch them the same way ORCIDs are batched.
+//
+// Returns an array keyed by BHL creator id. As with the unbatched lookup, a creator id
+// that matches more than one item is treated as no match.
+function wikidata_items_from_bhl_creators($ids)
 {
-	$item = '';
-	
-	$sparql = 'SELECT * WHERE { ?author wdt:P4081 "' . $id . '" }';
-	
-	//echo $sparql . "\n";
-	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-	$json = get($url, '', 'application/json');
-	
-	if ($json != '')
+	$result = array();
+
+	// Two levels of cache. $memory holds everything learnt this request, including misses.
+	// $disk survives between requests: the same authors turn up over and over across BHL
+	// parts, and resolving one hits the main Wikidata query endpoint, which is slow and
+	// erratic. A match is effectively permanent so we keep it indefinitely; a miss only
+	// holds until somebody creates that author in Wikidata, so we re-check it later.
+	static $memory = array();
+	static $disk = null;
+
+	$filename = dirname(__FILE__) . '/creators.json';
+
+	if ($disk === null)
 	{
-		$obj = json_decode($json);
-		
-		//print_r($obj);
-		
-		if (isset($obj->results->bindings))
+		$disk = array();
+
+		if (file_exists($filename))
 		{
-			if (count($obj->results->bindings) == 1)	
+			$obj = json_decode(@file_get_contents($filename), true);
+
+			if (is_array($obj))
 			{
-				$item = $obj->results->bindings[0]->author->value;
-				$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $item);
+				$disk = $obj;
 			}
 		}
 	}
-	
+
+	if (!is_array($ids))
+	{
+		return $result;
+	}
+
+	$pending = array();
+
+	foreach ($ids as $id)
+	{
+		$key = trim((string)$id);
+
+		if ($key == '')
+		{
+			continue;
+		}
+
+		if (array_key_exists($key, $memory))
+		{
+			$result[$key] = $memory[$key];
+		}
+		else if (isset($disk[$key]) && bhl_creator_cache_is_fresh($disk[$key]))
+		{
+			$memory[$key] = $disk[$key]['item'];
+			$result[$key] = $memory[$key];
+		}
+		else
+		{
+			$pending[$key] = $key;
+		}
+	}
+
+	if (count($pending) == 0)
+	{
+		return $result;
+	}
+
+	$today = date('Y-m-d');
+	$dirty = false;
+
+	$chunks = array_chunk(array_values($pending), 50);
+
+	foreach ($chunks as $chunk)
+	{
+		$values = array();
+
+		foreach ($chunk as $id)
+		{
+			$values[] = '"' . addcslashes($id, "\\\"") . '"';
+		}
+
+		$sparql = 'SELECT ?creator ?author WHERE {';
+		$sparql .= ' VALUES ?creator { ' . join(' ', $values) . ' }';
+		$sparql .= ' ?author wdt:P4081 ?creator .';
+		$sparql .= ' }';
+
+		$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+		$json = get($url, '', 'application/json');
+
+		// If the query timed out we know nothing about these ids. Don't record that as a
+		// miss, or a slow moment would be cached as "not in Wikidata".
+		if ($json == '')
+		{
+			foreach ($chunk as $id)
+			{
+				$result[$id] = '';
+			}
+
+			continue;
+		}
+
+		// A creator id matching more than one item is ambiguous, so track how many we saw
+		$seen = array();
+
+		$obj = json_decode($json);
+
+		if (isset($obj->results->bindings))
+		{
+			foreach ($obj->results->bindings as $binding)
+			{
+				if (isset($binding->creator->value) && isset($binding->author->value))
+				{
+					$key = trim($binding->creator->value);
+					$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $binding->author->value);
+
+					$seen[$key] = isset($seen[$key]) ? $seen[$key] + 1 : 1;
+
+					// only accept an unambiguous match, as the unbatched code did
+					$memory[$key] = ($seen[$key] == 1) ? $item : '';
+				}
+			}
+		}
+
+		foreach ($chunk as $id)
+		{
+			if (!array_key_exists($id, $memory))
+			{
+				$memory[$id] = '';
+			}
+
+			$disk[$id] = array('item' => $memory[$id], 'checked' => $today);
+			$dirty = true;
+
+			$result[$id] = $memory[$id];
+		}
+	}
+
+	if ($dirty)
+	{
+		@file_put_contents(
+			$filename,
+			json_encode($disk, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+			LOCK_EX);
+	}
+
+	return $result;
+}
+
+//----------------------------------------------------------------------------------------
+// Is a cached BHL creator lookup still worth believing? A match is, indefinitely. A miss
+// only until someone adds that author to Wikidata, so those get re-checked.
+function bhl_creator_cache_is_fresh($entry)
+{
+	if (!is_array($entry) || !isset($entry['item']))
+	{
+		return false;
+	}
+
+	if ($entry['item'] != '')
+	{
+		return true;
+	}
+
+	if (!isset($entry['checked']))
+	{
+		return false;
+	}
+
+	$checked = strtotime($entry['checked']);
+
+	if ($checked === false)
+	{
+		return false;
+	}
+
+	return (time() - $checked) < (30 * 24 * 60 * 60);
+}
+
+//----------------------------------------------------------------------------------------
+// Does Wikidata have an author with this BHL creator id?
+function wikidata_item_from_bhl_creator($id)
+{
+	$item = '';
+
+	$map = wikidata_items_from_bhl_creators(array($id));
+	$key = trim((string)$id);
+
+	if ($key != '' && isset($map[$key]))
+	{
+		$item = $map[$key];
+	}
+
 	return $item;
 }
 
@@ -1398,6 +1596,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 		'P1922',
 		'P6535', // credit BHL separately
 		'P687', // credit BHL separately
+		'P5315', // credit BHL separately
 	); // e.g., when adding PDFs or IA to records from JSTOR
 	
 	// Is record sane?
@@ -1488,7 +1687,16 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 			{
 				$item = wikidata_item_from_biostor($work->message->BIOSTOR);
 			}
-		}		
+		}
+
+		// BHL part
+		if ($item == '')
+		{
+			if (isset($work->message->BHLPART))
+			{
+				$item = wikidata_item_from_bhl_part($work->message->BHLPART);
+			}
+		}
 
 		// CNKI
 		if ($item == '')
@@ -1549,35 +1757,52 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 		}
 		
 		
-		// OpenURL
+		// OpenURL. This is the only check that catches works which are in Wikidata but
+		// carry none of the identifiers we were given, e.g. a BioStor record whose item
+		// was created from a scan and never given a BioStor id.
 		if ($item == '')
 		{
-			$parts = array();
-	
-			if (isset($work->message->ISSN))
-			{
-				$parts[] = $work->message->ISSN[0];
-			}
+			$volume = $spage = $year = '';
+
 			if (isset($work->message->volume))
 			{
-				$parts[] = $work->message->volume;
+				$volume = $work->message->volume;
 			}
+
 			if (isset($work->message->page))
 			{
 				if (preg_match('/^(?<spage>\d+)(-\d+)?/', $work->message->page, $m))
 				{
-					$parts[] = $m['spage'];
+					$spage = $m['spage'];
 				}
 			}
-			
+
 			if (isset($work->message->{'issued'}))
 			{
-				$parts[] = $work->message->{'issued'}->{'date-parts'}[0][0];
+				$year = $work->message->{'issued'}->{'date-parts'}[0][0];
 			}
-			
-			if (count($parts) == 4)
+
+			if ($volume != '' && $spage != '' && $year != '')
 			{
-				$item = wikidata_item_from_openurl_issn($parts[0], $parts[1], $parts[2], $parts[3]);
+				// If we already know the container item (BHL tells us) use it directly.
+				// Looking the ISSNs up as well would only rediscover the same container,
+				// and resolving an ISSN is one of the slowest queries we make.
+				if (isset($work->message->JOURNAL))
+				{
+					$item = wikidata_item_from_openurl_container($work->message->JOURNAL, $volume, $spage, $year);
+				}
+				else if (isset($work->message->ISSN))
+				{
+					$issns = is_array($work->message->ISSN) ? $work->message->ISSN : array($work->message->ISSN);
+
+					foreach ($issns as $issn)
+					{
+						if ($item == '')
+						{
+							$item = wikidata_item_from_openurl_issn($issn, $volume, $spage, $year);
+						}
+					}
+				}
 			}
 		}
 
@@ -1983,9 +2208,10 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				// in which case we would only add the item, not the name (can have one or the other)
 				// Note that we can't seem to add language codes to author names, they are just dumb strings
 
-				// Resolve every ORCID up front in one query so the per-author lookup below
-				// is served from cache (issue #21)
+				// Resolve every ORCID and BHL creator id up front, one query each, so the
+				// per-author lookups below are served from cache (issue #21)
 				$orcids = array();
+				$bhl_creators = array();
 
 				foreach ($work->message->author as $author)
 				{
@@ -1993,11 +2219,21 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 					{
 						$orcids[] = $author->ORCID;
 					}
+
+					if (isset($author->BHL))
+					{
+						$bhl_creators[] = $author->BHL;
+					}
 				}
 
 				if (count($orcids) > 0)
 				{
 					wikidata_items_from_orcids($orcids);
+				}
+
+				if (count($bhl_creators) > 0)
+				{
+					wikidata_items_from_bhl_creators($bhl_creators);
 				}
 
 				$count = 1;
@@ -2333,7 +2569,22 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 
 			//----------------------------------------------------------------------------
 			case 'BIOSTOR':
-				$w[] = array($wikidata_properties[$k] => '"' . $v . '"');
+				// The BioStor id comes from BHL, not from whoever supplied the rest of
+				// the record, so credit BHL for it the way we do for the BHL ids
+				if (isset($work->message->BHLPART) && count($source) != 0)
+				{
+					$qualifiers = array();
+					$qualifiers [] = 'S248';
+					$qualifiers [] = 'Q172266';
+					$qualifiers [] = 'S854';
+					$qualifiers [] = '"https://www.biodiversitylibrary.org/part/' . $work->message->BHLPART . '"';
+
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"' . "\t" . join("\t", $qualifiers));
+				}
+				else
+				{
+					$w[] = array($wikidata_properties[$k] => '"' . $v . '"');
+				}
 				break;
 
 			//----------------------------------------------------------------------------
@@ -2707,10 +2958,17 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 				{
 				
 					// OK, we need to link this to a Wikidata item
-				
+
 					// try via ISSN
 					$journal_item = '';
-				
+
+					// BHL title records often name the Wikidata item outright, which saves
+					// us the ISSN lookup
+					if (isset($work->message->JOURNAL))
+					{
+						$journal_item = $work->message->JOURNAL;
+					}
+
 					if ($journal_item == '')
 					{
 						if (isset($work->message->ISSN))
@@ -3231,20 +3489,31 @@ award: [
 }
 
 //----------------------------------------------------------------------------------------
-// OpenURL lookup using ISSN, volume, spage
-function wikidata_item_from_openurl_issn($issn, $volume, $spage, $year)
+// OpenURL-style metadata lookup.
+//
+// Scholarly articles and the journals that contain them now live in different Wikidata
+// query endpoints: the article is only in query-scholarly, the journal (and hence its
+// ISSN and label) is only in query. A single query that joins ?work -> ?container -> ?issn
+// spans both graphs and so matches nothing on either endpoint, which silently disabled
+// every metadata-based check. Resolve the container to an item first, then look the work
+// up against that item in the scholarly endpoint.
+function wikidata_item_from_openurl_container($container_item, $volume, $spage, $year)
 {
 	$item = '';
 	
+	if ($container_item == '' || $volume == '' || $spage == '' || $year == '')
+	{
+		return $item;
+	}
+	
 	$sparql = 'SELECT * WHERE 
 { 
-  VALUES ?issn {"' . $issn . '" } .
-  VALUES ?volume {"' . $volume . '" } .
+  VALUES ?container { wd:' . $container_item . ' } .
+  VALUES ?volume {"' . addcslashes($volume, '"') . '" } .
   VALUES ?firstpage {"^' . $spage . '([^0-9]|$)" } .
   VALUES ?year {"' . $year . '" } .
   
   ?work wdt:P1433 ?container .
-  ?container wdt:P236 ?issn.
   ?work wdt:P478 ?volume .
   ?work wdt:P304 ?pages .
   ?work wdt:P577 ?date .
@@ -3254,7 +3523,7 @@ function wikidata_item_from_openurl_issn($issn, $volume, $spage, $year)
 	
 	// echo $sparql . "\n";
 	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
 	$json = get($url, '', 'application/json');
 		
 	if ($json != '')
@@ -3277,49 +3546,32 @@ function wikidata_item_from_openurl_issn($issn, $volume, $spage, $year)
 }
 
 //----------------------------------------------------------------------------------------
-// OpenURL lookup using journal name, volume, spage
-function wikidata_item_from_openurl_journal($journal, $volume, $spage, $year)
+// OpenURL lookup using ISSN, volume, spage
+function wikidata_item_from_openurl_issn($issn, $volume, $spage, $year)
 {
 	$item = '';
 	
-	$sparql = 'SELECT * WHERE 
-{ 
-  VALUES ?journal {"' . $journal . '"@en } .
-  VALUES ?volume {"' . $volume . '" } .
-  VALUES ?firstpage {"^' . $spage . '([^0-9]|$)" } .
-  VALUES ?year {"' . $year . '" } .
-  
- #?container wdt:P1160 ?journal . # ISO 4 abbreviation 
-  ?container rdfs:label ?journal .
-  ?work wdt:P1433 ?container .
-  ?work wdt:P478 ?volume .
-  ?work wdt:P304 ?pages .
-  ?work wdt:P577 ?date .
-  FILTER regex(?pages,?firstpage,"i")
-  FILTER (STR(year(?date)) = ?year)
-}';
+	$container_item = wikidata_item_from_issn($issn);
 	
-	//echo $sparql . "\n";
-	
-	//exit();
-	
-	$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-	$json = get($url, '', 'application/json');
-		
-	if ($json != '')
+	if ($container_item != '')
 	{
-		$obj = json_decode($json);
-		
-		//print_r($obj);
-		
-		if (isset($obj->results->bindings))
-		{
-			if (count($obj->results->bindings) != 0)	
-			{
-				$item = $obj->results->bindings[0]->work->value;
-				$item = preg_replace('/https?:\/\/www.wikidata.org\/entity\//', '', $item);
-			}
-		}
+		$item = wikidata_item_from_openurl_container($container_item, $volume, $spage, $year);
+	}
+	
+	return $item;
+}
+
+//----------------------------------------------------------------------------------------
+// OpenURL lookup using journal name, volume, spage
+function wikidata_item_from_openurl_journal($journal, $volume, $spage, $year, $language = 'en')
+{
+	$item = '';
+	
+	$container_item = wikidata_item_from_journal_name($journal, $language);
+	
+	if ($container_item != '')
+	{
+		$item = wikidata_item_from_openurl_container($container_item, $volume, $spage, $year);
 	}
 	
 	return $item;
@@ -3591,6 +3843,149 @@ function update_citation_data($work, $item, $source = array())
 	return $quickstatements;
 
 	
+}
+
+//----------------------------------------------------------------------------------------
+// Which of the identifiers we hold does this item already have?
+//
+// Returns an array keyed by property, each entry an array of the values Wikidata has.
+function wikidata_identifiers_for_item($item, $properties)
+{
+	$have = array();
+	
+	if ($item == '' || count($properties) == 0)
+	{
+		return $have;
+	}
+	
+	$values = array();
+	
+	foreach ($properties as $property)
+	{
+		$values[] = 'wdt:' . $property;
+		$have[$property] = array();
+	}
+	
+	$sparql = 'SELECT ?p ?v WHERE {';
+	$sparql .= ' VALUES ?p { ' . join(' ', $values) . ' }';
+	$sparql .= ' wd:' . $item . ' ?p ?v .';
+	$sparql .= ' }';
+	
+	// echo $sparql . "\n";
+	
+	$url = 'https://query-scholarly.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
+	$json = get($url, '', 'application/json');
+	
+	if ($json != '')
+	{
+		$obj = json_decode($json);
+		
+		if (isset($obj->results->bindings))
+		{
+			foreach ($obj->results->bindings as $binding)
+			{
+				$property = preg_replace('/^.*\/(?<p>P\d+)$/', '$1', $binding->p->value);
+				
+				if (isset($have[$property]))
+				{
+					$have[$property][] = $binding->v->value;
+				}
+			}
+		}
+	}
+	
+	return $have;
+}
+
+//----------------------------------------------------------------------------------------
+// The work is already in Wikidata, but may be missing some of the identifiers we have for
+// it (e.g. an item created from its DOI that has never been given a BioStor id). Generate
+// Quickstatements for just those, rather than re-asserting the whole record.
+function wikidata_missing_identifier_statements($item, $work)
+{
+	$quickstatements = '';
+	
+	if ($item == '' || !isset($work->message))
+	{
+		return $quickstatements;
+	}
+	
+	$message = $work->message;
+	
+	// Identifiers we might be able to contribute, in the order we want to emit them
+	$candidates = array();
+	
+	if (isset($message->BIOSTOR))
+	{
+		$candidates['P5315'] = (string)$message->BIOSTOR;
+	}
+	
+	if (isset($message->BHLPART))
+	{
+		$candidates['P6535'] = (string)$message->BHLPART;
+	}
+	
+	if (isset($message->BHL))
+	{
+		$candidates['P687'] = (string)$message->BHL;
+	}
+	
+	if (isset($message->DOI))
+	{
+		$candidates['P356'] = mb_strtoupper($message->DOI);
+	}
+	
+	if (isset($message->JSTOR))
+	{
+		$candidates['P888'] = (string)$message->JSTOR;
+	}
+	
+	if (count($candidates) == 0)
+	{
+		return $quickstatements;
+	}
+	
+	$have = wikidata_identifiers_for_item($item, array_keys($candidates));
+	
+	// Everything here came from the BHL API, so credit BHL as the source
+	$source = array();
+	
+	if (isset($message->BHLPART))
+	{
+		$source[] = 'S248';
+		$source[] = 'Q172266'; // Biodiversity Heritage Library
+		$source[] = 'S854';
+		$source[] = '"https://www.biodiversitylibrary.org/part/' . $message->BHLPART . '"';
+	}
+	
+	foreach ($candidates as $property => $value)
+	{
+		$existing = isset($have[$property]) ? $have[$property] : array();
+		
+		$found = false;
+		
+		foreach ($existing as $current)
+		{
+			if (mb_strtoupper($current) == mb_strtoupper($value))
+			{
+				$found = true;
+			}
+		}
+		
+		if (!$found)
+		{
+			$statement = $item . "\t" . $property . "\t" . '"' . addcslashes($value, '"') . '"';
+			
+			if (count($source) > 0)
+			{
+				$statement .= "\t" . join("\t", $source);
+			}
+			
+			$quickstatements .= $statement . "\n";
+		}
+	}
+	
+	return $quickstatements;
 }
 
 ?>
