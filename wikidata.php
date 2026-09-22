@@ -1513,9 +1513,14 @@ function wikidata_items_from_bhl_creators($ids)
 	{
 		$disk['count'] = count($disk['hits']);
 
+		// Keep the file in the same sorted order update-creators.php writes, so that a
+		// rebuild doesn't show up as a diff of the whole file
+		ksort($disk['hits'], SORT_STRING);
+		ksort($disk['misses'], SORT_STRING);
+
 		@file_put_contents(
 			$filename,
-			json_encode($disk, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+			json_encode($disk, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT),
 			LOCK_EX);
 	}
 

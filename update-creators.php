@@ -122,6 +122,12 @@ foreach ($hits as $creator => $item)
 	unset($existing_misses[$creator]);
 }
 
+// Sort, so that rebuilding produces a byte-identical file when nothing has changed. The
+// query returns rows in no particular order, and without this every run would show up as a
+// megabyte-wide diff with nothing actually different in it.
+ksort($hits, SORT_STRING);
+ksort($existing_misses, SORT_STRING);
+
 // 'updated' and 'count' go first so bhl_creator_cache_status can read them off the front
 // of the file without parsing everything behind them
 $cache = array(
@@ -133,7 +139,7 @@ $cache = array(
 
 $written = file_put_contents(
 	$filename,
-	json_encode($cache, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+	json_encode($cache, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT),
 	LOCK_EX);
 
 if ($written === false)
