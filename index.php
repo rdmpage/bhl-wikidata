@@ -62,10 +62,11 @@ function parse_identifier($id)
 //----------------------------------------------------------------------------------------
 // Take a work, decide whether Wikidata already has it, and return what we should do about
 // it. Returns array with:
-//   status	 'create'  we have Quickstatements to make a new item
-//			 'update'  the item exists but is missing identifiers we hold
-//			 'exists'  the item exists and has everything we hold
-//			 'bad'	   we couldn't make anything of this identifier
+//   status	 'create'	 we have Quickstatements to make a new item
+//			 'update'	 the item exists but is missing identifiers we hold
+//			 'exists'	 the item exists and has everything we hold
+//			 'unchecked' a lookup failed, so we can't say whether it exists
+//			 'bad'		 we couldn't make anything of this identifier
 //   quickstatements   the statements to run (for 'create' and 'update')
 //   item			   the Wikidata item (for 'update' and 'exists')
 function result_from_work($work, $languages_to_detect, $source, $force = false)
@@ -94,6 +95,15 @@ function result_from_work($work, $languages_to_detect, $source, $force = false)
 
 	if (preg_match('/^CREATE/', $q))
 	{
+		// We only found nothing because a lookup failed, so we don't actually know this
+		// isn't in Wikidata. Proposing a CREATE here is how you end up with duplicates.
+		if (!$force && !wikidata_check_was_complete())
+		{
+			$result['status'] = 'unchecked';
+
+			return $result;
+		}
+
 		$result['status'] = 'create';
 		$result['quickstatements'] = $q;
 
@@ -494,6 +504,7 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	$to_create = array();
 	$to_update = array();
 	$have_already = array();
+	$unchecked = array();
 	$bad_identifier = array();
 
 	foreach ($results as $id => $result)
@@ -510,6 +521,10 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 
 			case 'exists':
 				$have_already[$id] = $result['item'];
+				break;
+
+			case 'unchecked':
+				$unchecked[] = $id;
 				break;
 
 			default:
@@ -633,6 +648,22 @@ foreach ($to_update as $id => $quickstatements)
 			echo '</tr>';
 		}
 		echo '</table>';
+	}
+
+	if (count($unchecked) > 0)
+	{
+		echo '<h2>' . count($unchecked) . ' identifier(s) could not be checked</h2>';
+
+		echo '<p>A lookup didn\'t come back in time, so we can\'t tell whether these are already
+		in Wikidata. Nothing has been generated for them, because creating an item that already
+		exists makes a duplicate. Try them again.</p>';
+
+		echo '<ul>';
+		foreach ($unchecked as $id)
+		{
+			echo '<li>' . htmlspecialchars($id) . '</li>';
+		}
+		echo '</ul>';
 	}
 
 	if (count($duplicates) > 0)

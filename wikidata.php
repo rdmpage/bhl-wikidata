@@ -126,6 +126,48 @@ function get_profile(&$log = null)
 }
 
 //----------------------------------------------------------------------------------------
+// How many requests have failed outright (timed out, or couldn't connect) this run.
+//
+// This matters because a lookup that failed tells us nothing, which is not at all the same
+// as telling us there is no match. Treating the two alike would have us propose creating an
+// item that already exists.
+function get_failure_count($increment = false)
+{
+	static $count = 0;
+
+	if ($increment)
+	{
+		$count++;
+	}
+
+	return $count;
+}
+
+//----------------------------------------------------------------------------------------
+// How long to wait on a lookup we can manage without.
+//
+// Resolving an author to an item is a nicety: if it doesn't come back we fall back to the
+// author's name as a string, which is a perfectly good statement. Checking whether a work
+// is already in Wikidata is not a nicety, so that keeps the full timeout. Failing fast on
+// the optional work leaves more of the request budget for the parts we depend on.
+define('BHL_WIKIDATA_ENRICHMENT_TIMEOUT', 8);
+
+//----------------------------------------------------------------------------------------
+// Did the last "is this already in Wikidata?" check manage to complete? Set by
+// csljson_to_wikidata, read by callers before they act on a CREATE.
+function wikidata_check_was_complete($set = null)
+{
+	static $complete = true;
+
+	if ($set !== null)
+	{
+		$complete = $set ? true : false;
+	}
+
+	return $complete;
+}
+
+//----------------------------------------------------------------------------------------
 // $timeout caps how long a single request may take, in seconds. Without a cap one slow
 // reply (the Wikidata query service is erratic, and has taken 40s for a query that usually
 // takes under a second) can eat the whole PHP execution limit and kill the request. With
@@ -140,7 +182,7 @@ function get($url, $user_agent='', $content_type = '', $timeout = 0)
 
 	if ($timeout <= 0)
 	{
-		$timeout = getenv('BHL_WIKIDATA_TIMEOUT') ? (int)getenv('BHL_WIKIDATA_TIMEOUT') : 15;
+		$timeout = getenv('BHL_WIKIDATA_TIMEOUT') ? (int)getenv('BHL_WIKIDATA_TIMEOUT') : 20;
 	}
 
 	$opts = array(
@@ -177,6 +219,11 @@ function get($url, $user_agent='', $content_type = '', $timeout = 0)
 	$data = curl_exec($ch);
 	$info = curl_getinfo($ch);
 	curl_close($ch);
+
+	if ($data === false)
+	{
+		get_failure_count(true);
+	}
 
 	if ($profile)
 	{
@@ -1148,7 +1195,7 @@ function wikidata_items_from_orcids($orcids)
 		$sparql .= ' }';
 
 		$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-		$json = get($url, '', 'application/json');
+		$json = get($url, '', 'application/json', BHL_WIKIDATA_ENRICHMENT_TIMEOUT);
 
 		// An ORCID matching more than one item is ambiguous, so track how many we saw
 		$seen = array();
@@ -1326,18 +1373,14 @@ function wikidata_items_from_bhl_creators($ids)
 
 	if ($disk === null)
 	{
-		$disk = array();
-
-		if (file_exists($filename))
-		{
-			$obj = json_decode(@file_get_contents($filename), true);
-
-			if (is_array($obj))
-			{
-				$disk = $obj;
-			}
-		}
+		$disk = bhl_creator_cache_load($filename);
 	}
+
+	// update-creators.php fetches every P4081 statement in Wikidata. While that dump is
+	// recent we can answer from it alone, including for creator ids it doesn't list. Once
+	// it goes stale we fall back to asking, so a forgotten rebuild degrades rather than
+	// silently reporting everyone added since as unlinked.
+	$dump_is_authoritative = isset($disk['updated']) && bhl_creator_miss_is_fresh($disk['updated']);
 
 	if (!is_array($ids))
 	{
@@ -1359,10 +1402,22 @@ function wikidata_items_from_bhl_creators($ids)
 		{
 			$result[$key] = $memory[$key];
 		}
-		else if (isset($disk[$key]) && bhl_creator_cache_is_fresh($disk[$key]))
+		else if (isset($disk['hits'][$key]))
 		{
-			$memory[$key] = $disk[$key]['item'];
+			$memory[$key] = $disk['hits'][$key];
 			$result[$key] = $memory[$key];
+		}
+		else if (isset($disk['misses'][$key]) && bhl_creator_miss_is_fresh($disk['misses'][$key]))
+		{
+			$memory[$key] = '';
+			$result[$key] = '';
+		}
+		else if ($dump_is_authoritative)
+		{
+			// The dump lists every BHL creator id in Wikidata, so not being in it is the
+			// answer, not a reason to go and ask
+			$memory[$key] = '';
+			$result[$key] = '';
 		}
 		else
 		{
@@ -1395,7 +1450,7 @@ function wikidata_items_from_bhl_creators($ids)
 		$sparql .= ' }';
 
 		$url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql?query=' . urlencode($sparql);
-		$json = get($url, '', 'application/json');
+		$json = get($url, '', 'application/json', BHL_WIKIDATA_ENRICHMENT_TIMEOUT);
 
 		// If the query timed out we know nothing about these ids. Don't record that as a
 		// miss, or a slow moment would be cached as "not in Wikidata".
@@ -1438,7 +1493,16 @@ function wikidata_items_from_bhl_creators($ids)
 				$memory[$id] = '';
 			}
 
-			$disk[$id] = array('item' => $memory[$id], 'checked' => $today);
+			if ($memory[$id] == '')
+			{
+				$disk['misses'][$id] = $today;
+			}
+			else
+			{
+				$disk['hits'][$id] = $memory[$id];
+				unset($disk['misses'][$id]);
+			}
+
 			$dirty = true;
 
 			$result[$id] = $memory[$id];
@@ -1449,7 +1513,7 @@ function wikidata_items_from_bhl_creators($ids)
 	{
 		@file_put_contents(
 			$filename,
-			json_encode($disk, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+			json_encode($disk, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
 			LOCK_EX);
 	}
 
@@ -1457,33 +1521,57 @@ function wikidata_items_from_bhl_creators($ids)
 }
 
 //----------------------------------------------------------------------------------------
-// Is a cached BHL creator lookup still worth believing? A match is, indefinitely. A miss
-// only until someone adds that author to Wikidata, so those get re-checked.
-function bhl_creator_cache_is_fresh($entry)
+// Load creators.json.
+//
+// Shape is { "updated": ..., "hits": { creator: item }, "misses": { creator: date } }.
+// Hits are kept indefinitely: a P4081 statement, once made, effectively stays. Misses are
+// only true until somebody links that author, so they carry the date we last checked.
+function bhl_creator_cache_load($filename)
 {
-	if (!is_array($entry) || !isset($entry['item']))
+	$cache = array('hits' => array(), 'misses' => array());
+
+	if (!file_exists($filename))
+	{
+		return $cache;
+	}
+
+	$obj = json_decode(@file_get_contents($filename), true);
+
+	if (!is_array($obj))
+	{
+		return $cache;
+	}
+
+	if (isset($obj['hits']) && is_array($obj['hits']))
+	{
+		$cache['hits'] = $obj['hits'];
+	}
+
+	if (isset($obj['misses']) && is_array($obj['misses']))
+	{
+		$cache['misses'] = $obj['misses'];
+	}
+
+	if (isset($obj['updated']))
+	{
+		$cache['updated'] = $obj['updated'];
+	}
+
+	return $cache;
+}
+
+//----------------------------------------------------------------------------------------
+// Should we still believe a cached miss, or is it time to look again?
+function bhl_creator_miss_is_fresh($checked)
+{
+	$time = strtotime((string)$checked);
+
+	if ($time === false)
 	{
 		return false;
 	}
 
-	if ($entry['item'] != '')
-	{
-		return true;
-	}
-
-	if (!isset($entry['checked']))
-	{
-		return false;
-	}
-
-	$checked = strtotime($entry['checked']);
-
-	if ($checked === false)
-	{
-		return false;
-	}
-
-	return (time() - $checked) < (30 * 24 * 60 * 60);
+	return (time() - $time) < (30 * 24 * 60 * 60);
 }
 
 //----------------------------------------------------------------------------------------
@@ -1622,6 +1710,13 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 
 	// Do we have this already in wikidata?
 	$item = '';
+	
+	// A lookup that fails tells us nothing. Remember whether all of them got through, so
+	// the caller can tell "no match" apart from "couldn't find out" and doesn't propose
+	// creating something that already exists.
+	$failures_before_check = get_failure_count();
+	
+	wikidata_check_was_complete(true);
 	
 	if ($check)
 	{
@@ -1806,6 +1901,7 @@ function csljson_to_wikidata($work, $check = true, $update = true, $languages_to
 			}
 		}
 
+		wikidata_check_was_complete(get_failure_count() == $failures_before_check);
 	}
 	
 	if ($item != '')
