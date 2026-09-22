@@ -428,6 +428,56 @@ function resolve_identifier($parsed)
 }
 
 //----------------------------------------------------------------------------------------
+// A note on how current the author cache is.
+//
+// While it is fresh, authors are linked to Wikidata items straight from the file. Once it
+// goes stale we start asking Wikidata about ids it doesn't list, which is slower, so say so
+// rather than letting the tool quietly get sluggish.
+function creator_cache_note()
+{
+	$status = bhl_creator_cache_status();
+
+	echo '<p class="note">';
+
+	if ($status['updated'] == '')
+	{
+		echo 'Author cache not built, so authors are looked up one batch at a time. ';
+		echo 'Run <code>php update-creators.php</code> to build it.';
+		echo '</p>';
+
+		return;
+	}
+
+	if ($status['days'] === null)
+	{
+		$when = 'on ' . htmlspecialchars($status['updated']);
+	}
+	else if ($status['days'] == 0)
+	{
+		$when = 'today';
+	}
+	else if ($status['days'] == 1)
+	{
+		$when = 'yesterday';
+	}
+	else
+	{
+		$when = $status['days'] . ' days ago';
+	}
+
+	printf('Author cache: %s BHL creator ids, rebuilt %s.', number_format($status['count']), $when);
+
+	if (!$status['fresh'])
+	{
+		echo ' It has gone stale, so authors it doesn\'t list are looked up from Wikidata, ';
+		echo 'which is slower and may fall back to plain author names. ';
+		echo 'Run <code>php update-creators.php</code> to refresh it.';
+	}
+
+	echo '</p>';
+}
+
+//----------------------------------------------------------------------------------------
 
 if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 {
@@ -558,6 +608,18 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	a {
 		text-decoration:none;
 		color:rgb(28,27,168);
+	}
+
+	.note {
+		margin-top:3em;
+		font-size:0.85em;
+		color:#757575;
+	}
+
+	.note code {
+		background-color:#f0f0f0;
+		padding:0.1em 0.3em;
+		border-radius:3px;
 	}
 
 	table {
@@ -705,6 +767,8 @@ foreach ($to_update as $id => $quickstatements)
     <button type="submit" name="add">Check and add</button>
 </form>
 
+<?php creator_cache_note(); ?>
+
 </body>
 </html>
 
@@ -747,6 +811,12 @@ else
 		padding:0.1em 0.3em;
 		border-radius:3px;
 	}
+
+	.note {
+		margin-top:3em;
+		font-size:0.85em;
+		color:#757575;
+	}
 	</style>
 </head>
 <body>
@@ -777,6 +847,7 @@ Wikidata but is missing an identifier we know about, the tool generates statemen
     <button type="submit" name="add">Check and add</button>
 </form>
 
+<?php creator_cache_note(); ?>
 
 </body>
 </html>

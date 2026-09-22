@@ -1511,6 +1511,8 @@ function wikidata_items_from_bhl_creators($ids)
 
 	if ($dirty)
 	{
+		$disk['count'] = count($disk['hits']);
+
 		@file_put_contents(
 			$filename,
 			json_encode($disk, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
@@ -1528,7 +1530,10 @@ function wikidata_items_from_bhl_creators($ids)
 // only true until somebody links that author, so they carry the date we last checked.
 function bhl_creator_cache_load($filename)
 {
-	$cache = array('hits' => array(), 'misses' => array());
+	// Order matters: 'updated' and 'count' are written first so that
+	// bhl_creator_cache_status can read them off the front of the file without parsing the
+	// megabyte of ids behind them
+	$cache = array('updated' => '', 'count' => 0, 'hits' => array(), 'misses' => array());
 
 	if (!file_exists($filename))
 	{
@@ -1542,6 +1547,11 @@ function bhl_creator_cache_load($filename)
 		return $cache;
 	}
 
+	if (isset($obj['updated']))
+	{
+		$cache['updated'] = $obj['updated'];
+	}
+
 	if (isset($obj['hits']) && is_array($obj['hits']))
 	{
 		$cache['hits'] = $obj['hits'];
@@ -1552,12 +1562,65 @@ function bhl_creator_cache_load($filename)
 		$cache['misses'] = $obj['misses'];
 	}
 
-	if (isset($obj['updated']))
-	{
-		$cache['updated'] = $obj['updated'];
-	}
+	$cache['count'] = count($cache['hits']);
 
 	return $cache;
+}
+
+//----------------------------------------------------------------------------------------
+// How old is the author cache, and how much is in it?
+//
+// Reads only the front of creators.json, so showing this on a page costs nothing even
+// though the file itself is about a megabyte.
+//
+// Returns array('updated' => 'YYYY-MM-DD', 'count' => n, 'days' => n, 'fresh' => bool),
+// with an empty 'updated' if there's no usable cache.
+function bhl_creator_cache_status($filename = '')
+{
+	if ($filename == '')
+	{
+		$filename = dirname(__FILE__) . '/creators.json';
+	}
+
+	$status = array(
+		'updated'	=> '',
+		'count'		=> 0,
+		'days'		=> null,
+		'fresh'		=> false
+	);
+
+	if (!file_exists($filename))
+	{
+		return $status;
+	}
+
+	$head = @file_get_contents($filename, false, null, 0, 256);
+
+	if ($head === false)
+	{
+		return $status;
+	}
+
+	if (preg_match('/"updated"\s*:\s*"(?<date>\d{4}-\d{2}-\d{2})"/', $head, $m))
+	{
+		$status['updated'] = $m['date'];
+
+		$time = strtotime($m['date']);
+
+		if ($time !== false)
+		{
+			$status['days'] = (int)floor((time() - $time) / (24 * 60 * 60));
+		}
+
+		$status['fresh'] = bhl_creator_miss_is_fresh($m['date']);
+	}
+
+	if (preg_match('/"count"\s*:\s*(?<count>\d+)/', $head, $m))
+	{
+		$status['count'] = (int)$m['count'];
+	}
+
+	return $status;
 }
 
 //----------------------------------------------------------------------------------------

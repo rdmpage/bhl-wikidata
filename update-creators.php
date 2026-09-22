@@ -122,8 +122,11 @@ foreach ($hits as $creator => $item)
 	unset($existing_misses[$creator]);
 }
 
+// 'updated' and 'count' go first so bhl_creator_cache_status can read them off the front
+// of the file without parsing everything behind them
 $cache = array(
 	'updated'	=> date('Y-m-d'),
+	'count'		=> count($hits),
 	'hits'		=> $hits,
 	'misses'	=> $existing_misses
 );
