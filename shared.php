@@ -1,6 +1,14 @@
 <?php
 
 //----------------------------------------------------------------------------------------
+// People often paste a DOI as a link, or with a "doi:" label. Returns the bare DOI, and
+// leaves anything else as it found it.
+function strip_doi_prefix($id)
+{
+	return preg_replace('/^(?:(?:https?:\/\/)?(?:www\.|dx\.)?doi\.org\/|doi:\s*)/i', '', trim($id));
+}
+
+//----------------------------------------------------------------------------------------
 function doi_to_agency($doi)
 {
 	$agency = '';

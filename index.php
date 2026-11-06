@@ -50,9 +50,12 @@ function parse_identifier($id)
 		}
 	}
 
-	if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $id))
+	$doi = strip_doi_prefix($id);
+
+	if (preg_match('/^10\.[0-9]{4,}(?:\.[0-9]+)*(?:\/|%2F)(?:(?![\"&\'])\S)+/', $doi))
 	{
 		$parsed['type'] = 'doi';
+		$parsed['value'] = $doi;
 		return $parsed;
 	}
 
@@ -833,7 +836,7 @@ Wikidata but is missing an identifier we know about, the tool generates statemen
 
 <p>You can enter:</p>
 <ul>
-	<li>a DOI, e.g. <code>10.24199/j.mmv.2004.61.3</code></li>
+	<li>a DOI, with or without <code>https://doi.org/</code>, e.g. <code>10.24199/j.mmv.2004.61.3</code></li>
 	<li>a BioStor id, e.g. <code>biostor:192990</code></li>
 	<li>a BHL part id, e.g. <code>bhlpart:202055</code></li>
 </ul>
