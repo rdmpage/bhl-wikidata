@@ -23,7 +23,7 @@ if (isset($_GET['ids']) && trim($_GET['ids']) != "")
 	
 	foreach ($raw_ids as $raw_id)
 	{
-		$id = trim($raw_id);
+		$id = strip_doi_prefix($raw_id);
 		
 		if ($id == '')
 		{

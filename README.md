@@ -4,7 +4,7 @@ Generate quickstatements for BHL content.
 
 Enter one or more identifiers, one per line:
 
-- a DOI, e.g. `10.24199/j.mmv.2004.61.3`
+- a DOI, with or without `https://doi.org/`, e.g. `10.24199/j.mmv.2004.61.3`
 - a BioStor id, e.g. `biostor:192990`
 - a BHL part id, e.g. `bhlpart:202055`
 
